@@ -1,0 +1,6 @@
+spring:
+  ai:
+    chat:
+      observations:
+        log-prompt: true
+        log-completion: true

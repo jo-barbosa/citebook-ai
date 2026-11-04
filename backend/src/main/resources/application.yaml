@@ -1,3 +1,46 @@
 spring:
   application:
     name: citebook-ai
+  ai:
+    model:
+      chat: openai
+      embedding: ollama
+    openai:
+      base-url: https://openrouter.ai/api
+      api-key: ${OPENROUTER_API_KEY}
+      timeout: 60s
+      chat:
+        options:
+          model: TODO # OpenRouter model, decided in milestone 2
+    ollama:
+      embedding:
+        options:
+          model: bge-m3
+    retry:
+      max-attempts: 3
+      backoff:
+        initial-interval: 2s
+        multiplier: 2
+        max-interval: 10s
+    vectorstore:
+      pgvector:
+        initialize-schema: false
+        dimensions: 1024
+        distance-type: COSINE_DISTANCE
+        index-type: HNSW
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+citebook:
+  chunk-size: 1600
+  chunk-overlap: 240 # ~15%
+  k: 5
+  score-threshold: TODO # decided in milestone 3
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
