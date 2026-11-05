@@ -79,6 +79,35 @@ class PageChunkerTest {
 		assertThatCode(() -> new PageChunker(100, 49)).doesNotThrowAnyException();
 	}
 
+	@Test
+	void prefersAParagraphBreakOverALaterSentenceEnd() {
+		String first = "a".repeat(60);
+		String text = first + "\n\n" + "bbbb ccc. " + "d".repeat(100);
+
+		List<Chunk> chunks = chunker.chunk(List.of(new Page(1, text)));
+
+		assertThat(chunks.getFirst()).isEqualTo(new Chunk(1, 0, first));
+	}
+
+	@Test
+	void cutsAtTheLastSentenceEndInTheSecondHalfOfTheWindow() {
+		String first = "Alpha beta gamma delta epsilon zeta eta theta iota kappa.";
+		String text = first + " Lambda mu nu xi omicron pi rho sigma tau upsilon phi chi psi omega.";
+
+		List<Chunk> chunks = chunker.chunk(List.of(new Page(1, text)));
+
+		assertThat(chunks.getFirst()).isEqualTo(new Chunk(1, 0, first));
+	}
+
+	@Test
+	void ignoresBoundariesInTheFirstHalfOfTheWindow() {
+		String text = "Short one. " + "x".repeat(200);
+
+		List<Chunk> chunks = chunker.chunk(List.of(new Page(1, text)));
+
+		assertThat(chunks.getFirst()).isEqualTo(new Chunk(1, 0, text.substring(0, 100)));
+	}
+
 	private static String letters(int length) {
 		return IntStream.range(0, length)
 				.mapToObj(i -> String.valueOf((char) ('a' + i % 26)))

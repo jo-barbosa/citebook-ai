@@ -38,7 +38,7 @@ public class PageChunker {
 		}
 		int start = 0;
 		while (true) {
-			int end = Math.min(start + chunkSize, text.length());
+			int end = start + chunkSize >= text.length() ? text.length() : cutPoint(text, start);
 			String part = text.substring(start, end).strip();
 			if (!part.isEmpty()) {
 				parts.add(part);
@@ -48,6 +48,26 @@ public class PageChunker {
 			}
 			start = end - overlap;
 		}
+	}
+
+	private int cutPoint(String text, int start) {
+		int hardEnd = start + chunkSize;
+		int minEnd = start + chunkSize / 2;
+		int paragraph = text.lastIndexOf("\n\n", hardEnd - 2);
+		if (paragraph >= minEnd) {
+			return paragraph;
+		}
+		for (int i = hardEnd - 1; i >= minEnd; i--) {
+			if (isSentenceEnd(text, i)) {
+				return i + 1;
+			}
+		}
+		return hardEnd;
+	}
+
+	private static boolean isSentenceEnd(String text, int i) {
+		char c = text.charAt(i);
+		return (c == '.' || c == '!' || c == '?') && Character.isWhitespace(text.charAt(i + 1));
 	}
 
 }
