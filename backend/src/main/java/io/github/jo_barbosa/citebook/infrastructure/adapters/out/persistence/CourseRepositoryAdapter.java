@@ -1,0 +1,44 @@
+package io.github.jo_barbosa.citebook.infrastructure.adapters.out.persistence;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Component;
+
+import io.github.jo_barbosa.citebook.application.ports.out.course.CourseRepositoryPort;
+import io.github.jo_barbosa.citebook.domain.model.course.Course;
+
+@Component
+public class CourseRepositoryAdapter implements CourseRepositoryPort {
+
+	private final JdbcClient jdbc;
+
+	public CourseRepositoryAdapter(JdbcClient jdbc) {
+		this.jdbc = jdbc;
+	}
+
+	@Override
+	public Optional<Course> findByCode(String code) {
+		return jdbc.sql("select id, code, created_at from course where code = :code")
+				.param("code", code)
+				.query(CourseRepositoryAdapter::toCourse)
+				.optional();
+	}
+
+	@Override
+	public Course create(String code) {
+		return jdbc.sql("insert into course (code) values (:code) returning id, code, created_at")
+				.param("code", code)
+				.query(CourseRepositoryAdapter::toCourse)
+				.single();
+	}
+
+	private static Course toCourse(ResultSet rs, int rowNum) throws SQLException {
+		return new Course(rs.getObject("id", UUID.class), rs.getString("code"),
+				rs.getTimestamp("created_at").toInstant());
+	}
+
+}
