@@ -1,6 +1,8 @@
 spring:
   application:
     name: citebook-ai
+  config:
+    import: optional:file:.env[.properties] # local secrets, git-ignored; relative to the working directory (backend/)
   ai:
     model:
       chat: openai
