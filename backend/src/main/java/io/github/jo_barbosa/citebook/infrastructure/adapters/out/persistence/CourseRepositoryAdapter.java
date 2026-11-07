@@ -2,6 +2,7 @@ package io.github.jo_barbosa.citebook.infrastructure.adapters.out.persistence;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +35,13 @@ public class CourseRepositoryAdapter implements CourseRepositoryPort {
 				.param("code", code)
 				.query(CourseRepositoryAdapter::toCourse)
 				.single();
+	}
+
+	@Override
+	public List<String> findAllCodes() {
+		return jdbc.sql("select code from course order by code")
+				.query(String.class)
+				.list();
 	}
 
 	private static Course toCourse(ResultSet rs, int rowNum) throws SQLException {

@@ -42,6 +42,14 @@ class CourseRepositoryAdapterTest {
 	}
 
 	@Test
+	void findsAllCodesInAlphabeticalOrder() {
+		repository.create("lprog");
+		repository.create("esinf");
+
+		assertThat(repository.findAllCodes()).containsExactly("esinf", "lprog");
+	}
+
+	@Test
 	void rejectsADuplicateCode() {
 		repository.create("esinf");
 

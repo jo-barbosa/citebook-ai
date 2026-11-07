@@ -37,7 +37,8 @@ citebook:
   chunk-size: 1600
   chunk-overlap: 240 # ~15%
   k: 5
-  score-threshold: TODO # decided in milestone 3
+  max-k: 8
+  score-threshold: 0.0 # no filtering until the evaluation picks a value (step 16)
 
 management:
   endpoints:

@@ -156,6 +156,11 @@ class DocumentServiceTest {
 			return course;
 		}
 
+		@Override
+		public List<String> findAllCodes() {
+			return byCode.keySet().stream().sorted().toList();
+		}
+
 	}
 
 	private static class InMemoryDocuments implements DocumentRepositoryPort {
