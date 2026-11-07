@@ -11,6 +11,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 | Area | Status |
 | --- | --- |
 | Upload a PDF to a course (idempotent, replaces changed files) | Done |
+| List courses with their document counts | Done |
 | Page-aware chunking with overlap | Done |
 | Embeddings stored in pgvector, filtered by course | Done |
 | Errors as RFC 9457 Problem Details, OpenAPI / Swagger UI | Done |
@@ -112,6 +113,16 @@ curl -F file=@notes.pdf http://localhost:8080/api/courses/my-course/documents
 | `413` | File larger than 50 MB |
 | `422` | Not a PDF, or a PDF without extractable text |
 | `503` | Embedding service unavailable |
+
+List the courses and how many documents each has:
+
+```bash
+curl http://localhost:8080/api/courses
+```
+
+```json
+[{ "code": "my-course", "documents": 1 }]
+```
 
 ## Tests
 
