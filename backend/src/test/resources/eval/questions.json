@@ -27,7 +27,7 @@
   {
     "question": "Que problema das listas baseadas em arrays é que o RootishArrayStack tenta resolver?",
     "expectedDocument": "ods-java.pdf",
-    "expectedPages": [61]
+    "expectedPages": [61, 62]
   },
   {
     "question": "Porque é que uma lista simplesmente ligada não consegue retirar o último elemento em tempo constante?",
@@ -77,7 +77,7 @@
   {
     "question": "O que guarda cada nó de um Treap além do valor, e que propriedade essa informação tem de respeitar?",
     "expectedDocument": "ods-java.pdf",
-    "expectedPages": [171]
+    "expectedPages": [171, 172]
   },
   {
     "question": "Porque é que um Treap tem de fazer rotações quando se insere um elemento?",
