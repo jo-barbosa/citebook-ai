@@ -137,6 +137,8 @@ Docker must be running: integration tests start a real Postgres + pgvector throu
 
 Course PDFs are copyrighted and stay local, outside the repository. Tests, evaluation and demos use the author's own notes or public documents.
 
+The retrieval evaluation uses *Open Data Structures (in Java)* by Pat Morin ([opendatastructures.org](https://opendatastructures.org), CC BY 2.5 CA), with 25 questions whose answers are on known pages. Corpus, questions and attribution: [`backend/src/test/resources/eval/`](backend/src/test/resources/eval/).
+
 ## License
 
 [MIT](LICENSE)

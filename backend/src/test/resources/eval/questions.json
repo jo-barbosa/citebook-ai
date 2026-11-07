@@ -1,0 +1,127 @@
+[
+  {
+    "question": "Porque é que, com um volume de dados enorme, até um algoritmo que só percorre os dados uma vez pode demorar demasiado?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [14, 15]
+  },
+  {
+    "question": "Num conjunto ordenado, o que devolve a operação de procura quando o valor pedido não existe?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [21]
+  },
+  {
+    "question": "Quando é que um ArrayStack encolhe o array interno depois de remover elementos?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [45]
+  },
+  {
+    "question": "Como é que uma fila guardada num array reaproveita as posições do início sem deslocar os elementos?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [50]
+  },
+  {
+    "question": "Que regra mantém equilibradas as duas pilhas que formam um DualArrayDeque?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [58, 59]
+  },
+  {
+    "question": "Que problema das listas baseadas em arrays é que o RootishArrayStack tenta resolver?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [61]
+  },
+  {
+    "question": "Porque é que uma lista simplesmente ligada não consegue retirar o último elemento em tempo constante?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [78]
+  },
+  {
+    "question": "Para que serve o nó sentinela, sem dados, numa lista duplamente ligada?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [79]
+  },
+  {
+    "question": "Num SEList, quantos elementos pode ter cada bloco que não seja o último?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [84]
+  },
+  {
+    "question": "Como é que uma skiplist escolhe a altura de um elemento novo, e qual é a altura média?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [99, 100]
+  },
+  {
+    "question": "Como funciona o hashing multiplicativo e que tamanho tem a tabela que ele usa?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [122]
+  },
+  {
+    "question": "Numa tabela de hash com sondagem linear, porque é que não se pode simplesmente pôr null na posição de um elemento apagado?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [127, 128]
+  },
+  {
+    "question": "Porque é que percorrer uma árvore binária com recursão pode falhar, e como se faz sem recursão?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [149, 150]
+  },
+  {
+    "question": "Qual é o custo das operações numa árvore binária de pesquisa que não é equilibrada?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [158]
+  },
+  {
+    "question": "Numa árvore binária de pesquisa construída a partir de uma permutação aleatória, qual é o comprimento esperado do caminho de pesquisa?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [168]
+  },
+  {
+    "question": "O que guarda cada nó de um Treap além do valor, e que propriedade essa informação tem de respeitar?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [171]
+  },
+  {
+    "question": "Porque é que um Treap tem de fazer rotações quando se insere um elemento?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [173]
+  },
+  {
+    "question": "Que contador extra mantém uma ScapegoatTree e que limite de altura é que isso garante?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [186, 187]
+  },
+  {
+    "question": "Qual é a relação entre as árvores rubro-negras e as árvores 2-4?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [202, 203]
+  },
+  {
+    "question": "Como se guarda uma árvore binária completa num array para implementar um heap?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [223]
+  },
+  {
+    "question": "Em que operação se apoiam a inserção e a remoção num MeldableHeap?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [229]
+  },
+  {
+    "question": "Qual é o número mínimo de comparações que qualquer algoritmo de ordenação por comparações tem de fazer no pior caso?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [249]
+  },
+  {
+    "question": "Quanto tempo demora o counting sort e porque se diz que é estável?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [253]
+  },
+  {
+    "question": "Como funciona a pesquisa em largura num grafo e que estrutura auxiliar utiliza?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [268]
+  },
+  {
+    "question": "Quantos filhos pode ter um nó interno de uma B-tree e qual é a relação com as árvores 2-4?",
+    "expectedDocument": "ods-java.pdf",
+    "expectedPages": [298]
+  }
+]

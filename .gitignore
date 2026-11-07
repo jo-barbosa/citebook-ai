@@ -7,6 +7,8 @@
 citebook-data/
 # Safety net: no PDF is committed by accident. Add a !path exception for public test fixtures if ever needed.
 *.pdf
+# Public evaluation corpus (CC BY 2.5 CA, see backend/src/test/resources/eval/README.md)
+!backend/src/test/resources/eval/ods-java.pdf
 
 # Local design notes
 docs/specs/
