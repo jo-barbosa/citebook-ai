@@ -12,12 +12,10 @@ spring:
       api-key: ${OPENROUTER_API_KEY}
       timeout: 60s
       chat:
-        options:
-          model: z-ai/glm-5.3-flash
+        model: z-ai/glm-5.3-flash
     ollama:
       embedding:
-        options:
-          model: bge-m3
+        model: bge-m3
     retry:
       max-attempts: 3
       backoff:
