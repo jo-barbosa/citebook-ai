@@ -5,11 +5,14 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.ai.document.Document;
+import org.springframework.ai.retry.TransientAiException;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 
+import io.github.jo_barbosa.citebook.application.exceptions.ExternalServiceUnavailableException;
 import io.github.jo_barbosa.citebook.application.ports.out.chunk.ChunkStorePort;
 import io.github.jo_barbosa.citebook.domain.model.chunk.Chunk;
 import io.github.jo_barbosa.citebook.domain.model.chunk.ChunkMatch;
@@ -35,7 +38,12 @@ public class ChunkStoreAdapter implements ChunkStorePort {
 						"page", chunk.page(),
 						"chunk_index", chunk.index())))
 				.toList();
-		vectorStore.add(documents);
+		try {
+			vectorStore.add(documents);
+		}
+		catch (ResourceAccessException | TransientAiException e) {
+			throw unavailable(e);
+		}
 	}
 
 	@Override
@@ -51,9 +59,18 @@ public class ChunkStoreAdapter implements ChunkStorePort {
 				.similarityThreshold(minScore)
 				.filterExpression(FILTER.eq("course_code", courseCode).build())
 				.build();
-		return vectorStore.similaritySearch(request).stream()
-				.map(ChunkStoreAdapter::toMatch)
-				.toList();
+		try {
+			return vectorStore.similaritySearch(request).stream()
+					.map(ChunkStoreAdapter::toMatch)
+					.toList();
+		}
+		catch (ResourceAccessException | TransientAiException e) {
+			throw unavailable(e);
+		}
+	}
+
+	private static ExternalServiceUnavailableException unavailable(RuntimeException cause) {
+		return new ExternalServiceUnavailableException("embedding service", cause);
 	}
 
 	private static ChunkMatch toMatch(Document document) {
