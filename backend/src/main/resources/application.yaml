@@ -13,7 +13,7 @@ spring:
       timeout: 60s
       chat:
         options:
-          model: TODO # OpenRouter model, decided in milestone 2
+          model: z-ai/glm-5.3-flash
     ollama:
       embedding:
         options:
