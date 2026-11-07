@@ -1,3 +1,27 @@
-.idea/
-docs/specs/
+# Secrets: local env files hold API keys; only the example is tracked
 .env
+.env.*
+!.env.example
+
+# Course material (copyrighted, local only)
+citebook-data/
+# Safety net: no PDF is committed by accident. Add a !path exception for public test fixtures if ever needed.
+*.pdf
+
+# Local design notes
+docs/specs/
+
+# IDEs and editors
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS files (Zone.Identifier: Windows metadata copied into WSL)
+.DS_Store
+Thumbs.db
+desktop.ini
+*:Zone.Identifier
+
+# Logs
+*.log
