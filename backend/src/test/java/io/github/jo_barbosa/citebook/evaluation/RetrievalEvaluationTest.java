@@ -70,6 +70,10 @@ class RetrievalEvaluationTest {
 
 	private static final Path REPORT = Path.of("target", "eval-report.md");
 
+	// A little under the first measurement (2026-11-07, chunk size 1600, k 5): fails if retrieval regresses.
+	private static final double MIN_HIT_RATE_AT_5 = 0.80;
+	private static final double MIN_MRR = 0.54;
+
 	private static OllamaContainer ollama;
 
 	@BeforeAll
@@ -118,6 +122,8 @@ class RetrievalEvaluationTest {
 		System.out.println(report);
 
 		assertThat(results).hasSize(25);
+		assertThat(hitRateAt5).as("hit rate@5").isGreaterThanOrEqualTo(MIN_HIT_RATE_AT_5);
+		assertThat(mrr).as("MRR").isGreaterThanOrEqualTo(MIN_MRR);
 	}
 
 	private record Result(EvalQuestion question, List<Excerpt> excerpts, int rank) {

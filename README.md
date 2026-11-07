@@ -4,7 +4,7 @@ Ask questions about a course's PDFs and get answers that cite their source (file
 
 citebook-ai is a retrieval-augmented generation (RAG) service. You upload a course's PDFs, it splits them into chunks, embeds them and stores them in pgvector. A question is answered only from the most relevant excerpts, and every citation in the answer is checked against the excerpts that were actually retrieved. The same engine is exposed through a REST API (for an Angular UI) and an MCP server (for external assistants such as Claude Desktop).
 
-> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage) works today. Question answering with citations, the MCP tools, the evaluation suite and the Angular UI are next.
+> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval and the retrieval evaluation work today. Question answering with citations, the MCP tools and the Angular UI are next.
 
 ## Features
 
@@ -17,7 +17,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 | Errors as RFC 9457 Problem Details, OpenAPI / Swagger UI | Done |
 | Answers with checked citations (file + page) | Planned |
 | Read-only MCP tools | Planned |
-| Retrieval evaluation (hit rate / recall@k) as a test | Planned |
+| Retrieval evaluation (hit rate@k, MRR) as a test | Done |
 | Angular UI | Planned |
 
 ## Design choices
@@ -141,6 +141,15 @@ cd backend
 ```
 
 Ingests the evaluation corpus with the real `bge-m3` embedding model (Ollama in a Testcontainers container), runs the 25 questions through the search use case and reports hit rate@1/3/5 and MRR in `backend/target/eval-report.md`. No LLM and no API key are involved. The first run downloads `bge-m3` (about 1.2 GB) and saves a local Docker image, `citebook-ollama-bge-m3`, so later runs skip the download. The default build excludes this test.
+
+First results (2026-11-07; `bge-m3`, chunk size 1600, overlap 240, k 5, no score threshold; 25 questions):
+
+| Metric | Value |
+| --- | --- |
+| hit rate@1 | 0.36 |
+| hit rate@3 | 0.88 |
+| hit rate@5 | 0.88 |
+| MRR | 0.593 |
 
 ## Data
 
