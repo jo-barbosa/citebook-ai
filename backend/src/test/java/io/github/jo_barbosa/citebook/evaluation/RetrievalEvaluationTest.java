@@ -25,6 +25,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClient;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -58,6 +59,7 @@ class RetrievalEvaluationTest {
 	private static final String OLLAMA_IMAGE = "ollama/ollama:latest";
 	private static final String CACHED_IMAGE = "citebook-ollama-bge-m3";
 	private static final String MODEL = "bge-m3";
+	private static final String MODELS_DIR_VARIABLE = "CITEBOOK_OLLAMA_MODELS";
 
 	private static final String COURSE = "ods";
 	private static final String DOCUMENT = "ods-java.pdf";
@@ -130,10 +132,20 @@ class RetrievalEvaluationTest {
 	}
 
 	/**
-	 * Starts Ollama with bge-m3. The first run pulls the model and saves the container as a local image, so later
-	 * runs skip the ~1.2 GB download.
+	 * Starts Ollama with bge-m3. Locally, the first run pulls the model and saves the container as an image, so later
+	 * runs skip the ~1.2 GB download. In CI, {@value #MODELS_DIR_VARIABLE} names a host directory that the workflow
+	 * caches: it is mounted as Ollama's model store and no image is saved (the image would be too large to cache).
 	 */
 	private static OllamaContainer ollamaWithModel() throws Exception {
+		String modelsDir = System.getenv(MODELS_DIR_VARIABLE);
+		if (modelsDir != null && !modelsDir.isBlank()) {
+			Files.createDirectories(Path.of(modelsDir));
+			OllamaContainer container = new OllamaContainer(OLLAMA_IMAGE)
+					.withFileSystemBind(modelsDir, "/root/.ollama", BindMode.READ_WRITE);
+			container.start();
+			pullModel(container);
+			return container;
+		}
 		boolean cached = !DockerClientFactory.instance().client().listImagesCmd()
 				.withReferenceFilter(CACHED_IMAGE)
 				.exec()
@@ -146,12 +158,17 @@ class RetrievalEvaluationTest {
 		}
 		OllamaContainer container = new OllamaContainer(OLLAMA_IMAGE);
 		container.start();
+		pullModel(container);
+		container.commitToImage(CACHED_IMAGE);
+		return container;
+	}
+
+	/** Fast when the model is already in the model store: Ollama only checks the manifest. */
+	private static void pullModel(OllamaContainer container) throws Exception {
 		ExecResult pull = container.execInContainer("ollama", "pull", MODEL);
 		if (pull.getExitCode() != 0) {
 			throw new IllegalStateException("ollama pull " + MODEL + " failed: " + pull.getStderr());
 		}
-		container.commitToImage(CACHED_IMAGE);
-		return container;
 	}
 
 	private static EmbeddingModel embeddingModel() {
