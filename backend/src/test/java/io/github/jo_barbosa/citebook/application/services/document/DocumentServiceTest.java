@@ -29,6 +29,7 @@ import io.github.jo_barbosa.citebook.domain.model.chunk.ChunkMatch;
 import io.github.jo_barbosa.citebook.domain.model.chunk.Page;
 import io.github.jo_barbosa.citebook.domain.model.chunk.PageChunker;
 import io.github.jo_barbosa.citebook.domain.model.course.Course;
+import io.github.jo_barbosa.citebook.domain.model.course.CourseSummary;
 import io.github.jo_barbosa.citebook.domain.model.document.Document;
 
 class DocumentServiceTest {
@@ -159,6 +160,11 @@ class DocumentServiceTest {
 		@Override
 		public List<String> findAllCodes() {
 			return byCode.keySet().stream().sorted().toList();
+		}
+
+		@Override
+		public List<CourseSummary> findAllSummaries() {
+			throw new UnsupportedOperationException("ingest never lists courses");
 		}
 
 	}

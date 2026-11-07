@@ -21,6 +21,7 @@ import io.github.jo_barbosa.citebook.domain.exceptions.CourseNotFoundException;
 import io.github.jo_barbosa.citebook.domain.model.chunk.Chunk;
 import io.github.jo_barbosa.citebook.domain.model.chunk.ChunkMatch;
 import io.github.jo_barbosa.citebook.domain.model.course.Course;
+import io.github.jo_barbosa.citebook.domain.model.course.CourseSummary;
 import io.github.jo_barbosa.citebook.domain.model.question.Excerpt;
 
 class QuestionServiceTest {
@@ -117,6 +118,11 @@ class QuestionServiceTest {
 		@Override
 		public List<String> findAllCodes() {
 			return codes;
+		}
+
+		@Override
+		public List<CourseSummary> findAllSummaries() {
+			throw new UnsupportedOperationException("search never lists courses");
 		}
 
 	}
