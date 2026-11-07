@@ -10,6 +10,8 @@ public interface ChunkStorePort {
 
 	void save(String courseCode, UUID documentId, String fileName, List<Chunk> chunks);
 
+	void deleteByDocumentId(UUID documentId);
+
 	List<ChunkMatch> search(String courseCode, String query, int k, double minScore);
 
 }

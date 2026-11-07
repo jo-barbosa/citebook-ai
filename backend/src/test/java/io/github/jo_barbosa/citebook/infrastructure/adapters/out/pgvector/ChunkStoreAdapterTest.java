@@ -71,4 +71,16 @@ class ChunkStoreAdapterTest {
 				.extracting(ChunkMatch::fileName).containsExactly("a.pdf");
 	}
 
+	@Test
+	void deletesOnlyTheChunksOfTheGivenDocument() {
+		UUID document = UUID.randomUUID();
+		store.save("esinf", document, "a.pdf", List.of(new Chunk(1, 0, "tree traversal")));
+		store.save("esinf", UUID.randomUUID(), "b.pdf", List.of(new Chunk(1, 0, "tree traversal")));
+
+		store.deleteByDocumentId(document);
+
+		assertThat(store.search("esinf", "tree traversal", 5, 0.1))
+				.extracting(ChunkMatch::fileName).containsExactly("b.pdf");
+	}
+
 }

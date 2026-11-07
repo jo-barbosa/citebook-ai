@@ -39,6 +39,11 @@ public class ChunkStoreAdapter implements ChunkStorePort {
 	}
 
 	@Override
+	public void deleteByDocumentId(UUID documentId) {
+		vectorStore.delete(FILTER.eq("document_id", documentId.toString()).build());
+	}
+
+	@Override
 	public List<ChunkMatch> search(String courseCode, String query, int k, double minScore) {
 		SearchRequest request = SearchRequest.builder()
 				.query(query)
