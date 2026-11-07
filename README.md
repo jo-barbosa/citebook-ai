@@ -133,6 +133,15 @@ cd backend
 
 Docker must be running: integration tests start a real Postgres + pgvector through Testcontainers. Tests use a fake embedding model, so no Ollama or API key is needed. The same command runs in CI on every push that touches `backend/`.
 
+### Retrieval evaluation
+
+```bash
+cd backend
+./mvnw verify -Dgroups=eval -DexcludedGroups=
+```
+
+Ingests the evaluation corpus with the real `bge-m3` embedding model (Ollama in a Testcontainers container), runs the 25 questions through the search use case and reports hit rate@1/3/5 and MRR in `backend/target/eval-report.md`. No LLM and no API key are involved. The first run downloads `bge-m3` (about 1.2 GB) and saves a local Docker image, `citebook-ollama-bge-m3`, so later runs skip the download. The default build excludes this test.
+
 ## Data
 
 Course PDFs are copyrighted and stay local, outside the repository. Tests, evaluation and demos use the author's own notes or public documents.
