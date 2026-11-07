@@ -1,0 +1,69 @@
+name: Retrieval evaluation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/src/main/java/io/github/jo_barbosa/citebook/domain/model/chunk/**'
+      - 'backend/src/main/java/io/github/jo_barbosa/citebook/application/services/question/**'
+      - 'backend/src/main/java/io/github/jo_barbosa/citebook/infrastructure/adapters/out/pdf/**'
+      - 'backend/src/main/java/io/github/jo_barbosa/citebook/infrastructure/adapters/out/pgvector/**'
+      - 'backend/src/test/java/io/github/jo_barbosa/citebook/evaluation/**'
+      - 'backend/src/test/resources/eval/**'
+      - '.github/workflows/eval.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Ollama's model store, mounted into the container by RetrievalEvaluationTest and cached between runs.
+      CITEBOOK_OLLAMA_MODELS: ${{ github.workspace }}/.ollama-models
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space for the Ollama image
+        working-directory: .
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Cache the bge-m3 model
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ollama-models
+          key: ollama-bge-m3-v1
+
+      - name: Run the retrieval evaluation
+        run: ./mvnw -B verify -Dgroups=eval -DexcludedGroups=
+
+      # The Ollama container writes the model store as root (including a 0600 key file);
+      # the cache is saved as the runner user, so hand the files back to it first.
+      - name: Make the model store readable for the cache
+        if: always()
+        working-directory: .
+        run: sudo chown -R "$(id -u):$(id -g)" "$CITEBOOK_OLLAMA_MODELS"
+
+      - name: Publish the report to the job summary
+        if: always()
+        run: |
+          if [ -f target/eval-report.md ]; then
+            cat target/eval-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No evaluation report was written; see the test step log." >> "$GITHUB_STEP_SUMMARY"
+          fi
