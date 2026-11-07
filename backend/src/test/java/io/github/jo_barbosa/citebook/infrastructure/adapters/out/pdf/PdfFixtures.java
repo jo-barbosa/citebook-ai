@@ -10,12 +10,12 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 
-final class PdfFixtures {
+public final class PdfFixtures {
 
 	private PdfFixtures() {
 	}
 
-	static byte[] pdf(String... pageTexts) {
+	public static byte[] pdf(String... pageTexts) {
 		try (PDDocument document = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 			PDType1Font font = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
 			for (String text : pageTexts) {
