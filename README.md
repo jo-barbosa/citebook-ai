@@ -30,7 +30,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 
 **Course-filtered vector search.** All courses share one table and one HNSW index. With a filter, pgvector first reads the nearest chunks from the index (about 40 by default) and only then drops those of other courses, so a small course could get no results although it has relevant material. A Flyway migration and the connection pool turn on iterative index scans (`hnsw.iterative_scan = strict_order`), which keep reading the index until `k` chunks of the course are found (up to a scan limit). The same migration adds a GIN index on the metadata for the course and document filters.
 
-**Prompt-injection hygiene** (planned). Retrieved excerpts go into the prompt inside delimiters with their source id, and the system prompt states that excerpts are data, not instructions.
+**Prompt-injection hygiene** (`PromptBuilder`). Retrieved excerpts go into the prompt inside `<excerpt>` tags with their number, file and page, and the system prompt states that excerpts are data, not instructions. All text that is not ours (chunk text, file names, the question) is escaped as XML text, so a PDF or a question containing `</excerpt>` cannot close its tag or forge an excerpt with a fake source. This protects the prompt's structure; an instruction written as plain text still reaches the model, which is why citations are also checked against the excerpts actually sent (planned).
 
 **Hexagonal architecture.** The domain (`course`, `document`, `chunk`, `citation`) is plain Java with no framework types. The REST controllers and MCP tools are two inbound adapters calling the same use cases; pgvector, the PDF reader and the LLM are outbound adapters behind ports.
 
