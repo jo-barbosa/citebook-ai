@@ -50,8 +50,9 @@ import io.github.jo_barbosa.citebook.infrastructure.adapters.out.persistence.Doc
 
 /**
  * Retrieval evaluation (spec section 9): ingests the corpus with the real embedding model and measures whether the
- * search use case returns an excerpt from the page that answers each question. Run with
- * {@code ./mvnw verify -Dgroups=eval -DexcludedGroups=}.
+ * search use case returns an excerpt from the page that answers each question. Off-topic questions show what a score
+ * threshold would filter out. Run with {@code ./mvnw verify -Dgroups=eval -DexcludedGroups=}; add
+ * {@code -Deval.chunk-size=800} or {@code -Deval.score-threshold=0.5} to try other settings.
  */
 @Tag("eval")
 class RetrievalEvaluationTest {
@@ -64,11 +65,14 @@ class RetrievalEvaluationTest {
 	private static final String COURSE = "ods";
 	private static final String DOCUMENT = "ods-java.pdf";
 
-	// Same values as application.yaml (citebook.*); step 16 tunes them.
-	private static final int CHUNK_SIZE = 1600;
-	private static final int CHUNK_OVERLAP = 240;
-	private static final int K = 5;
-	private static final double SCORE_THRESHOLD = 0.0;
+	// Defaults are the values in application.yaml (citebook.*). Overlap is 15% of the chunk size, as there.
+	private static final int CHUNK_SIZE = Integer.getInteger("eval.chunk-size", 1600);
+	private static final int CHUNK_OVERLAP = CHUNK_SIZE * 15 / 100;
+	private static final double SCORE_THRESHOLD = Double
+			.parseDouble(System.getProperty("eval.score-threshold", "0.0"));
+
+	// As deep as citebook.max-k, so one run measures hit rate at every k the app may use.
+	private static final int SEARCH_DEPTH = 8;
 
 	private static final Path REPORT = Path.of("target", "eval-report.md");
 
@@ -100,35 +104,65 @@ class RetrievalEvaluationTest {
 				new PdfReaderAdapter(), new PageChunker(CHUNK_SIZE, CHUNK_OVERLAP),
 				new TransactionTemplate(new DataSourceTransactionManager(TestDatabase.dataSource())));
 		QuestionUseCases questions = new QuestionService(courses, chunkStore,
-				new SearchSettings(K, K, SCORE_THRESHOLD));
+				new SearchSettings(SEARCH_DEPTH, SEARCH_DEPTH, SCORE_THRESHOLD));
 
 		IngestDocumentView ingested = documents.ingest(new IngestDocumentCommand(COURSE, DOCUMENT, corpus()));
 
 		List<Result> results = EvalQuestion.load().stream()
 				.map(question -> {
-					List<Excerpt> excerpts = questions.search(new SearchCommand(COURSE, question.question(), K));
+					List<Excerpt> excerpts = search(questions, question.question());
 					int rank = RetrievalMetrics.firstRelevantRank(excerpts, question.expectedDocument(),
 							question.expectedPages());
 					return new Result(question, excerpts, rank);
 				})
 				.toList();
+		List<OffTopicResult> offTopic = EvalQuestion.loadOffTopic().stream()
+				.map(question -> new OffTopicResult(question, search(questions, question)))
+				.toList();
 		List<Integer> ranks = results.stream().map(Result::rank).toList();
-		double hitRateAt1 = RetrievalMetrics.hitRate(ranks, 1);
-		double hitRateAt3 = RetrievalMetrics.hitRate(ranks, 3);
-		double hitRateAt5 = RetrievalMetrics.hitRate(ranks, 5);
-		double mrr = RetrievalMetrics.meanReciprocalRank(ranks);
+		Metrics metrics = Metrics.of(ranks);
 
-		String report = report(ingested, results, hitRateAt1, hitRateAt3, hitRateAt5, mrr);
+		String report = report(ingested, results, offTopic, metrics);
 		Files.createDirectories(REPORT.getParent());
 		Files.writeString(REPORT, report);
 		System.out.println(report);
 
 		assertThat(results).hasSize(25);
-		assertThat(hitRateAt5).as("hit rate@5").isGreaterThanOrEqualTo(MIN_HIT_RATE_AT_5);
-		assertThat(mrr).as("MRR").isGreaterThanOrEqualTo(MIN_MRR);
+		assertThat(metrics.hitRateAt5()).as("hit rate@5").isGreaterThanOrEqualTo(MIN_HIT_RATE_AT_5);
+		assertThat(metrics.mrr()).as("MRR").isGreaterThanOrEqualTo(MIN_MRR);
+	}
+
+	private static List<Excerpt> search(QuestionUseCases questions, String query) {
+		return questions.search(new SearchCommand(COURSE, query, SEARCH_DEPTH));
 	}
 
 	private record Result(EvalQuestion question, List<Excerpt> excerpts, int rank) {
+
+		/** Score of the first relevant excerpt; NaN on a miss. */
+		double relevantScore() {
+			return rank == 0 ? Double.NaN : excerpts.get(rank - 1).score();
+		}
+
+	}
+
+	private record OffTopicResult(String question, List<Excerpt> excerpts) {
+
+		/** Score of the best excerpt; NaN when the threshold left none. */
+		double topScore() {
+			return excerpts.isEmpty() ? Double.NaN : excerpts.getFirst().score();
+		}
+
+	}
+
+	private record Metrics(double hitRateAt1, double hitRateAt3, double hitRateAt5, double hitRateAtDepth,
+			double mrr) {
+
+		static Metrics of(List<Integer> ranks) {
+			return new Metrics(RetrievalMetrics.hitRate(ranks, 1), RetrievalMetrics.hitRate(ranks, 3),
+					RetrievalMetrics.hitRate(ranks, 5), RetrievalMetrics.hitRate(ranks, SEARCH_DEPTH),
+					RetrievalMetrics.meanReciprocalRank(ranks));
+		}
+
 	}
 
 	/**
@@ -193,30 +227,64 @@ class RetrievalEvaluationTest {
 		}
 	}
 
-	private static String report(IngestDocumentView ingested, List<Result> results, double hitRateAt1,
-			double hitRateAt3, double hitRateAt5, double mrr) {
+	private static String report(IngestDocumentView ingested, List<Result> results, List<OffTopicResult> offTopic,
+			Metrics metrics) {
+		double lowestRelevantScore = results.stream()
+				.filter(result -> result.rank() > 0)
+				.mapToDouble(Result::relevantScore)
+				.min()
+				.orElse(Double.NaN);
+		double highestOffTopicScore = offTopic.stream()
+				.filter(result -> !result.excerpts().isEmpty())
+				.mapToDouble(OffTopicResult::topScore)
+				.max()
+				.orElse(Double.NaN);
+		long offTopicWithoutExcerpts = offTopic.stream().filter(result -> result.excerpts().isEmpty()).count();
+
 		StringBuilder md = new StringBuilder();
 		md.append("# Retrieval evaluation\n\n");
 		md.append(String.format(Locale.ROOT,
 				"Corpus `%s`: %d pages with text, %d chunks. Embedding model `%s`. "
-						+ "Chunk size %d, overlap %d, k %d, score threshold %.2f. %d questions.%n%n",
-				DOCUMENT, ingested.pages(), ingested.chunks(), MODEL, CHUNK_SIZE, CHUNK_OVERLAP, K, SCORE_THRESHOLD,
-				results.size()));
+						+ "Chunk size %d, overlap %d, search depth %d, score threshold %.2f. "
+						+ "%d questions, %d off-topic questions.%n%n",
+				DOCUMENT, ingested.pages(), ingested.chunks(), MODEL, CHUNK_SIZE, CHUNK_OVERLAP, SEARCH_DEPTH,
+				SCORE_THRESHOLD, results.size(), offTopic.size()));
 		md.append("| Metric | Value |\n| --- | --- |\n");
-		md.append(String.format(Locale.ROOT, "| hit rate@1 | %.2f |%n", hitRateAt1));
-		md.append(String.format(Locale.ROOT, "| hit rate@3 | %.2f |%n", hitRateAt3));
-		md.append(String.format(Locale.ROOT, "| hit rate@5 | %.2f |%n", hitRateAt5));
-		md.append(String.format(Locale.ROOT, "| MRR | %.3f |%n%n", mrr));
-		md.append("| # | Question | Expected pages | Rank | Retrieved pages |\n| --- | --- | --- | --- | --- |\n");
+		md.append(String.format(Locale.ROOT, "| hit rate@1 | %.2f |%n", metrics.hitRateAt1()));
+		md.append(String.format(Locale.ROOT, "| hit rate@3 | %.2f |%n", metrics.hitRateAt3()));
+		md.append(String.format(Locale.ROOT, "| hit rate@5 | %.2f |%n", metrics.hitRateAt5()));
+		md.append(String.format(Locale.ROOT, "| hit rate@%d | %.2f |%n", SEARCH_DEPTH, metrics.hitRateAtDepth()));
+		md.append(String.format(Locale.ROOT, "| MRR | %.3f |%n%n", metrics.mrr()));
+		md.append("Scores (cosine similarity, higher is closer):\n\n");
+		md.append(String.format(Locale.ROOT, "- Lowest score of a relevant excerpt: %s%n", score(lowestRelevantScore)));
+		md.append(String.format(Locale.ROOT, "- Highest top score of an off-topic question: %s%n",
+				score(highestOffTopicScore)));
+		md.append(String.format(Locale.ROOT, "- Off-topic questions with no excerpt: %d of %d%n%n",
+				offTopicWithoutExcerpts, offTopic.size()));
+		md.append("| # | Question | Expected pages | Rank | Relevant score | Top score | Retrieved pages |\n");
+		md.append("| --- | --- | --- | --- | --- | --- | --- |\n");
 		for (int i = 0; i < results.size(); i++) {
 			Result result = results.get(i);
-			String retrieved = result.excerpts().stream()
-					.map(excerpt -> String.valueOf(excerpt.page()))
-					.collect(Collectors.joining(", "));
-			md.append(String.format(Locale.ROOT, "| %d | %s | %s | %s | %s |%n", i + 1, result.question().question(),
-					result.question().expectedPages(), result.rank() == 0 ? "miss" : result.rank(), retrieved));
+			double topScore = result.excerpts().isEmpty() ? Double.NaN : result.excerpts().getFirst().score();
+			md.append(String.format(Locale.ROOT, "| %d | %s | %s | %s | %s | %s | %s |%n", i + 1,
+					result.question().question(), result.question().expectedPages(),
+					result.rank() == 0 ? "miss" : result.rank(), score(result.relevantScore()), score(topScore),
+					pages(result.excerpts())));
+		}
+		md.append("\n## Off-topic questions\n\n| Question | Top score | Retrieved pages |\n| --- | --- | --- |\n");
+		for (OffTopicResult result : offTopic) {
+			md.append(String.format(Locale.ROOT, "| %s | %s | %s |%n", result.question(), score(result.topScore()),
+					pages(result.excerpts())));
 		}
 		return md.toString();
+	}
+
+	private static String score(double score) {
+		return Double.isNaN(score) ? "-" : String.format(Locale.ROOT, "%.3f", score);
+	}
+
+	private static String pages(List<Excerpt> excerpts) {
+		return excerpts.stream().map(excerpt -> String.valueOf(excerpt.page())).collect(Collectors.joining(", "));
 	}
 
 }
