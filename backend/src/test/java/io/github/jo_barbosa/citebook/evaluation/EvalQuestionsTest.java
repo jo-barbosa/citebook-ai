@@ -27,4 +27,9 @@ class EvalQuestionsTest {
 		});
 	}
 
+	@Test
+	void loadsTheFiveOffTopicQuestions() {
+		assertThat(EvalQuestion.loadOffTopic()).hasSize(5).allSatisfy(question -> assertThat(question).isNotBlank());
+	}
+
 }
