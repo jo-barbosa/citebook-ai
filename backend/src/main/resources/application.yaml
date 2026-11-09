@@ -34,11 +34,11 @@ spring:
       max-request-size: 50MB
 
 citebook:
-  chunk-size: 1600
-  chunk-overlap: 240 # ~15%
+  chunk-size: 800 # chosen in step 16 (evaluation, see README)
+  chunk-overlap: 120 # 15% of chunk-size
   k: 5
   max-k: 8
-  score-threshold: 0.0 # no filtering until the evaluation picks a value (step 16)
+  score-threshold: 0.53 # chosen in step 16: between real and off-topic questions' scores
 
 management:
   endpoints:

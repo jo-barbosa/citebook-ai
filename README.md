@@ -24,7 +24,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 
 **Hand-written RAG core.** Spring AI supplies the building blocks (`VectorStore`, `DocumentReader`, `EmbeddingModel`, `ChatModel`, `@Tool`). Chunking, prompt construction, citation checking and evaluation are written in this project's own code, not delegated to Spring AI advisors, so each step can be read and explained without the framework.
 
-**Chunking** (`PageChunker`). Each page is chunked on its own, so every chunk maps to exactly one page and a citation can point to it. Chunks are up to 1600 characters with about 15% overlap. A cut prefers a paragraph break, then a sentence end, and only then a hard cut, and it never falls in the first half of a chunk. Pages with almost no text are skipped.
+**Chunking** (`PageChunker`). Each page is chunked on its own, so every chunk maps to exactly one page and a citation can point to it. Chunks are up to 800 characters (chosen with the retrieval evaluation) with about 15% overlap. A cut prefers a paragraph break, then a sentence end, and only then a hard cut, and it never falls in the first half of a chunk. Pages with almost no text are skipped.
 
 **Idempotent ingestion.** A document is identified by course and file name and fingerprinted with SHA-256. Uploading the same file again changes nothing (`200`). Uploading a changed file with the same name replaces the old chunks and metadata in a single transaction (`201`).
 
@@ -140,22 +140,25 @@ cd backend
 ./mvnw verify -Dgroups=eval -DexcludedGroups=
 ```
 
-Ingests the evaluation corpus with the real `bge-m3` embedding model (Ollama in a Testcontainers container), runs the 25 questions through the search use case and reports hit rate@1/3/5 and MRR in `backend/target/eval-report.md`. No LLM and no API key are involved. The first run downloads `bge-m3` (about 1.2 GB) and saves a local Docker image, `citebook-ollama-bge-m3`, so later runs skip the download. The default build excludes this test. In GitHub Actions it runs in its own workflow, `eval.yml`: on demand and on pushes to `main` that change chunking, search or the evaluation, with the report in the job summary.
+Ingests the evaluation corpus with the real `bge-m3` embedding model (Ollama in a Testcontainers container), runs the 25 questions and 5 off-topic questions through the search use case and reports hit rate@1/3/5/8, MRR and the similarity scores in `backend/target/eval-report.md`. The test fails if hit rate@5 or MRR drops below a floor, or if an off-topic question gets an excerpt. No LLM and no API key are involved. The first run downloads `bge-m3` (about 1.2 GB) and saves a local Docker image, `citebook-ollama-bge-m3`, so later runs skip the download. The default build excludes this test. In GitHub Actions it runs in its own workflow, `eval.yml`: on demand and on pushes to `main` that change chunking, search or the evaluation, with the report in the job summary.
 
-First results (2026-11-07; `bge-m3`, chunk size 1600, overlap 240, k 5, no score threshold; 25 questions):
+Chunk size comparison (2026-11-09; `bge-m3`, overlap 15%, no score threshold, 25 questions):
 
-| Metric | Value |
-| --- | --- |
-| hit rate@1 | 0.36 |
-| hit rate@3 | 0.88 |
-| hit rate@5 | 0.88 |
-| MRR | 0.593 |
+| Chunk size | Chunks | hit rate@1 | hit rate@3 | hit rate@5 | hit rate@8 | MRR (depth 8) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 800 | 847 | 0.52 | 0.76 | 0.88 | 0.96 | 0.660 |
+| 1600 | 453 | 0.36 | 0.88 | 0.88 | 1.00 | 0.613 |
+| 3200 | 322 | 0.44 | 0.84 | 0.92 | 0.96 | 0.638 |
+
+Chosen: chunk size 800, k 5, score threshold 0.53. k 5 was preferred to 8: one more question (0.96 vs 0.88) is not worth 60% more prompt. The threshold sits between the scores of right excerpts and of 5 off-topic questions the book does not answer; with it, 5 of the 5 get no excerpt, so the answering step can reply "no relevant material" without calling the LLM.
+
+Measured at the chosen configuration (2026-11-09): hit rate@1 0.52, hit rate@3 0.76, hit rate@5 0.88, hit rate@8 0.96, MRR 0.660 (over search depth 8); 5 of 5 off-topic questions get no excerpt; lowest score of a relevant excerpt 0.552.
 
 ## Data
 
 Course PDFs are copyrighted and stay local, outside the repository. Tests, evaluation and demos use the author's own notes or public documents.
 
-The retrieval evaluation uses *Open Data Structures (in Java)* by Pat Morin ([opendatastructures.org](https://opendatastructures.org), CC BY 2.5 CA), with 25 questions whose answers are on known pages. Corpus, questions and attribution: [`backend/src/test/resources/eval/`](backend/src/test/resources/eval/).
+The retrieval evaluation uses *Open Data Structures (in Java)* by Pat Morin ([opendatastructures.org](https://opendatastructures.org), CC BY 2.5 CA), with 25 questions whose answers are on known pages, plus 5 off-topic questions. Corpus, questions and attribution: [`backend/src/test/resources/eval/`](backend/src/test/resources/eval/).
 
 ## License
 

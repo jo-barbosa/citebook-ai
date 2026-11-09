@@ -52,7 +52,8 @@ import io.github.jo_barbosa.citebook.infrastructure.adapters.out.persistence.Doc
  * Retrieval evaluation (spec section 9): ingests the corpus with the real embedding model and measures whether the
  * search use case returns an excerpt from the page that answers each question. Off-topic questions show what a score
  * threshold would filter out. Run with {@code ./mvnw verify -Dgroups=eval -DexcludedGroups=}; add
- * {@code -Deval.chunk-size=800} or {@code -Deval.score-threshold=0.5} to try other settings.
+ * {@code -Deval.chunk-size=1600} or {@code -Deval.score-threshold=0.0} to try other settings. The floors below fit the
+ * default settings; other settings may fail them, but the report is still written.
  */
 @Tag("eval")
 class RetrievalEvaluationTest {
@@ -66,19 +67,27 @@ class RetrievalEvaluationTest {
 	private static final String DOCUMENT = "ods-java.pdf";
 
 	// Defaults are the values in application.yaml (citebook.*). Overlap is 15% of the chunk size, as there.
-	private static final int CHUNK_SIZE = Integer.getInteger("eval.chunk-size", 1600);
+	private static final int CHUNK_SIZE = Integer.getInteger("eval.chunk-size", 800);
 	private static final int CHUNK_OVERLAP = CHUNK_SIZE * 15 / 100;
 	private static final double SCORE_THRESHOLD = Double
-			.parseDouble(System.getProperty("eval.score-threshold", "0.0"));
+			.parseDouble(System.getProperty("eval.score-threshold", "0.53"));
 
 	// As deep as citebook.max-k, so one run measures hit rate at every k the app may use.
 	private static final int SEARCH_DEPTH = 8;
 
+	// citebook.k: the number of excerpts the app puts in a prompt; the regression floor is checked at this depth.
+	private static final int K = 5;
+
 	private static final Path REPORT = Path.of("target", "eval-report.md");
 
-	// A little under the first measurement (2026-11-07, chunk size 1600, k 5): fails if retrieval regresses.
-	private static final double MIN_HIT_RATE_AT_5 = 0.80;
-	private static final double MIN_MRR = 0.54;
+	// A little under the step 16 measurement (2026-11-09, chunk size 800, k 5, score threshold 0.53): fails if
+	// retrieval regresses. Hit rate: two questions under; MRR: 0.05 under.
+	private static final double MIN_HIT_RATE_AT_K = 0.80;
+	private static final double MIN_MRR = 0.61;
+
+	// The step 16 threshold gives no excerpt to 5 of the 5 off-topic questions. If this fails, rerun with
+	// -Deval.score-threshold=0.0 to see the off-topic scores and choose the threshold again.
+	private static final int MIN_OFF_TOPIC_WITHOUT_EXCERPTS = 5;
 
 	private static OllamaContainer ollama;
 
@@ -128,8 +137,11 @@ class RetrievalEvaluationTest {
 		System.out.println(report);
 
 		assertThat(results).hasSize(25);
-		assertThat(metrics.hitRateAt5()).as("hit rate@5").isGreaterThanOrEqualTo(MIN_HIT_RATE_AT_5);
+		assertThat(RetrievalMetrics.hitRate(ranks, K)).as("hit rate@" + K).isGreaterThanOrEqualTo(MIN_HIT_RATE_AT_K);
 		assertThat(metrics.mrr()).as("MRR").isGreaterThanOrEqualTo(MIN_MRR);
+		assertThat(offTopic.stream().filter(result -> result.excerpts().isEmpty()).count())
+				.as("off-topic questions with no excerpt")
+				.isGreaterThanOrEqualTo(MIN_OFF_TOPIC_WITHOUT_EXCERPTS);
 	}
 
 	private static List<Excerpt> search(QuestionUseCases questions, String query) {
