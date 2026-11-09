@@ -156,6 +156,15 @@ Chosen: chunk size 800, k 5, score threshold 0.53. k 5 was preferred to 8: one m
 
 Measured at the chosen configuration (2026-11-09): hit rate@1 0.52, hit rate@3 0.76, hit rate@5 0.88, hit rate@8 0.96, MRR 0.660 (over search depth 8); 5 of 5 off-topic questions get no excerpt; lowest score of a relevant excerpt 0.552.
 
+### Live OpenRouter check
+
+```bash
+cd backend
+./mvnw verify -Dgroups=live -DexcludedGroups=
+```
+
+Sends one question to OpenRouter with the configured base URL and model, to confirm the key, the endpoint and the model work together. It needs `OPENROUTER_API_KEY` (environment or `backend/.env`) and is skipped without it; Docker must be running, as for the other tests that start the application. The default build excludes it. Chat calls are retried once (2 attempts) with a 30 s timeout per attempt; rate limits, provider errors and timeouts return `503`.
+
 ## Data
 
 Course PDFs are copyrighted and stay local, outside the repository. Tests, evaluation and demos use the author's own notes or public documents.

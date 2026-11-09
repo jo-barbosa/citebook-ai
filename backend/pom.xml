@@ -28,8 +28,9 @@
 	</scm>
 	<properties>
 		<java.version>25</java.version>
-		<!-- The retrieval evaluation needs Ollama and takes minutes: run it with -Dgroups=eval -DexcludedGroups= -->
-		<excludedGroups>eval</excludedGroups>
+		<!-- eval needs Ollama and takes minutes; live calls OpenRouter with a real key.
+		     Run one with -Dgroups=eval -DexcludedGroups= (or -Dgroups=live -DexcludedGroups=). -->
+		<excludedGroups>eval,live</excludedGroups>
 		<spring-ai.version>2.0.1</spring-ai.version>
 	</properties>
 	<dependencies>
