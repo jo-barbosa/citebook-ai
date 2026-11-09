@@ -28,6 +28,8 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 
 **Idempotent ingestion.** A document is identified by course and file name and fingerprinted with SHA-256. Uploading the same file again changes nothing (`200`). Uploading a changed file with the same name replaces the old chunks and metadata in a single transaction (`201`).
 
+**Course-filtered vector search.** All courses share one table and one HNSW index. With a filter, pgvector first reads the nearest chunks from the index (about 40 by default) and only then drops those of other courses, so a small course could get no results although it has relevant material. A Flyway migration and the connection pool turn on iterative index scans (`hnsw.iterative_scan = strict_order`), which keep reading the index until `k` chunks of the course are found (up to a scan limit). The same migration adds a GIN index on the metadata for the course and document filters.
+
 **Prompt-injection hygiene** (planned). Retrieved excerpts go into the prompt inside delimiters with their source id, and the system prompt states that excerpts are data, not instructions.
 
 **Hexagonal architecture.** The domain (`course`, `document`, `chunk`, `citation`) is plain Java with no framework types. The REST controllers and MCP tools are two inbound adapters calling the same use cases; pgvector, the PDF reader and the LLM are outbound adapters behind ports.
@@ -48,7 +50,7 @@ io.github.jo_barbosa.citebook
 ## Tech stack
 
 - Java 25, Spring Boot 4.1, Spring AI 2.0, Maven
-- PostgreSQL 16 + pgvector (HNSW index, cosine distance), schema managed by Flyway
+- PostgreSQL 16 + pgvector (HNSW index, cosine distance, iterative index scans), schema managed by Flyway
 - Embeddings: Ollama with `bge-m3` (1024 dimensions), running locally
 - Chat model: OpenAI-compatible API through OpenRouter
 - springdoc-openapi, Actuator + Prometheus metrics

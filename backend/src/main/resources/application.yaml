@@ -1,4 +1,8 @@
 spring:
+  datasource:
+    hikari:
+      # every pool connection, including those opened while Flyway applies V2 (see V2__filtered_vector_search.sql)
+      connection-init-sql: SET hnsw.iterative_scan = strict_order
   application:
     name: citebook-ai
   config:
