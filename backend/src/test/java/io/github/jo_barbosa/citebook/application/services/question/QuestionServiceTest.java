@@ -13,16 +13,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import io.github.jo_barbosa.citebook.application.ports.in.question.AnswerView;
+import io.github.jo_barbosa.citebook.application.ports.in.question.AskCommand;
 import io.github.jo_barbosa.citebook.application.ports.in.question.QuestionUseCases;
 import io.github.jo_barbosa.citebook.application.ports.in.question.SearchCommand;
+import io.github.jo_barbosa.citebook.application.ports.out.chat.ChatPort;
 import io.github.jo_barbosa.citebook.application.ports.out.chunk.ChunkStorePort;
 import io.github.jo_barbosa.citebook.application.ports.out.course.CourseRepositoryPort;
 import io.github.jo_barbosa.citebook.domain.exceptions.CourseNotFoundException;
 import io.github.jo_barbosa.citebook.domain.model.chunk.Chunk;
 import io.github.jo_barbosa.citebook.domain.model.chunk.ChunkMatch;
+import io.github.jo_barbosa.citebook.domain.model.citation.Citation;
 import io.github.jo_barbosa.citebook.domain.model.course.Course;
 import io.github.jo_barbosa.citebook.domain.model.course.CourseSummary;
 import io.github.jo_barbosa.citebook.domain.model.question.Excerpt;
+import io.github.jo_barbosa.citebook.domain.model.question.PromptBuilder;
 
 class QuestionServiceTest {
 
@@ -31,7 +36,9 @@ class QuestionServiceTest {
 	private final StubCourses courses = new StubCourses(List.of("esinf", "lprog"));
 	private final RecordingChunkStore chunkStore = new RecordingChunkStore();
 
-	private final QuestionUseCases service = new QuestionService(courses, chunkStore, SETTINGS);
+	private final RecordingChat chat = new RecordingChat();
+
+	private final QuestionUseCases service = new QuestionService(courses, chunkStore, SETTINGS, chat);
 
 	@Test
 	void numbersTheMatchesByRankInTheOrderTheStoreReturnsThem() {
@@ -96,6 +103,94 @@ class QuestionServiceTest {
 		assertThat(service.search(new SearchCommand("esinf", "What does Dijkstra do?", null))).isEmpty();
 	}
 
+	@Test
+	void asksTheModelWithTheFoundExcerptsAndReturnsTheCheckedAnswer() {
+		chunkStore.matches = List.of(
+				new ChunkMatch("graphs.pdf", 12, "Dijkstra finds shortest paths.", 0.91),
+				new ChunkMatch("trees.pdf", 3, "A BST keeps keys ordered.", 0.74));
+		chat.answer = "Dijkstra finds shortest paths [1]. It is greedy [7].";
+
+		AnswerView answer = service.ask(new AskCommand("esinf", "What does Dijkstra do?"));
+
+		PromptBuilder prompts = new PromptBuilder();
+		List<Excerpt> sent = List.of(
+				new Excerpt(1, "graphs.pdf", 12, "Dijkstra finds shortest paths.", 0.91),
+				new Excerpt(2, "trees.pdf", 3, "A BST keeps keys ordered.", 0.74));
+		assertThat(chat.calls).containsExactly(new RecordingChat.Call(prompts.systemMessage(),
+				prompts.userMessage("What does Dijkstra do?", sent)));
+		assertThat(answer).isEqualTo(new AnswerView("Dijkstra finds shortest paths [1]. It is greedy.", true,
+				List.of(new Citation(1, "graphs.pdf", 12, "Dijkstra finds shortest paths."))));
+	}
+
+	@Test
+	void withoutMaterialItAnswersWithoutCallingTheModel() {
+		chunkStore.matches = List.of();
+
+		AnswerView answer = service.ask(new AskCommand("esinf", "Who won the 2016 European Championship?"));
+
+		assertThat(answer).isEqualTo(new AnswerView(QuestionService.NO_MATERIAL_ANSWER, false, List.of()));
+		assertThat(chat.calls).isEmpty();
+	}
+
+	@Test
+	void anAnswerWithoutValidCitationsIsNotGrounded() {
+		chunkStore.matches = List.of(new ChunkMatch("graphs.pdf", 12, "Dijkstra finds shortest paths.", 0.91));
+		chat.answer = "Dijkstra is a well-known algorithm.";
+
+		AnswerView answer = service.ask(new AskCommand("esinf", "What does Dijkstra do?"));
+
+		assertThat(answer.grounded()).isFalse();
+		assertThat(answer.citations()).isEmpty();
+		assertThat(answer.answer()).isEqualTo("Dijkstra is a well-known algorithm.");
+	}
+
+	@Test
+	void searchesWithTheDefaultK() {
+		service.ask(new AskCommand("esinf", "What does Dijkstra do?"));
+
+		assertThat(chunkStore.searches).containsExactly(
+				new RecordingChunkStore.Search("esinf", "What does Dijkstra do?", 5, 0.3));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "", "   " })
+	void rejectsABlankQuestion(String question) {
+		assertThatThrownBy(() -> service.ask(new AskCommand("esinf", question)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("question must not be blank");
+		assertThat(chunkStore.searches).isEmpty();
+		assertThat(chat.calls).isEmpty();
+	}
+
+	@Test
+	void rejectsAQuestionLongerThanTheLimit() {
+		String question = "a".repeat(QuestionService.MAX_QUESTION_LENGTH + 1);
+
+		assertThatThrownBy(() -> service.ask(new AskCommand("esinf", question)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("question must be at most 1000 characters, got 1001");
+		assertThat(chunkStore.searches).isEmpty();
+		assertThat(chat.calls).isEmpty();
+	}
+
+	@Test
+	void acceptsAQuestionOfExactlyTheLimit() {
+		service.ask(new AskCommand("esinf", "a".repeat(QuestionService.MAX_QUESTION_LENGTH)));
+
+		assertThat(chunkStore.searches).hasSize(1);
+	}
+
+	@Test
+	void anUnknownCourseIsRejectedBeforeTheModelIsCalled() {
+		// Material is available, so an empty chat log proves the course check stopped the call.
+		chunkStore.matches = List.of(new ChunkMatch("graphs.pdf", 12, "Dijkstra finds shortest paths.", 0.91));
+
+		assertThatThrownBy(() -> service.ask(new AskCommand("xpto", "What does Dijkstra do?")))
+				.isInstanceOf(CourseNotFoundException.class);
+		assertThat(chunkStore.searches).isEmpty();
+		assertThat(chat.calls).isEmpty();
+	}
+
 	private static class StubCourses implements CourseRepositoryPort {
 
 		private final List<String> codes;
@@ -149,6 +244,22 @@ class QuestionServiceTest {
 		public List<ChunkMatch> search(String courseCode, String query, int k, double minScore) {
 			searches.add(new Search(courseCode, query, k, minScore));
 			return matches;
+		}
+
+	}
+
+	private static class RecordingChat implements ChatPort {
+
+		record Call(String systemMessage, String userMessage) {
+		}
+
+		final List<Call> calls = new ArrayList<>();
+		String answer = "";
+
+		@Override
+		public String complete(String systemMessage, String userMessage) {
+			calls.add(new Call(systemMessage, userMessage));
+			return answer;
 		}
 
 	}

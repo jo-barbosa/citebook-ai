@@ -38,7 +38,10 @@ class QuestionServiceIntegrationTest {
 			chunkStore, new PdfReaderAdapter(), new PageChunker(100, 20),
 			new TransactionTemplate(new DataSourceTransactionManager(TestDatabase.dataSource())));
 
-	private final QuestionUseCases questions = new QuestionService(courses, chunkStore, new SearchSettings(5, 8, 0.0));
+	private final QuestionUseCases questions = new QuestionService(courses, chunkStore, new SearchSettings(5, 8, 0.0),
+			(system, user) -> {
+				throw new UnsupportedOperationException("search never calls the chat model");
+			});
 
 	@BeforeEach
 	void clean() {

@@ -5,25 +5,42 @@ import java.util.stream.IntStream;
 
 import org.springframework.stereotype.Service;
 
+import io.github.jo_barbosa.citebook.application.ports.in.question.AnswerView;
+import io.github.jo_barbosa.citebook.application.ports.in.question.AskCommand;
 import io.github.jo_barbosa.citebook.application.ports.in.question.QuestionUseCases;
 import io.github.jo_barbosa.citebook.application.ports.in.question.SearchCommand;
+import io.github.jo_barbosa.citebook.application.ports.out.chat.ChatPort;
 import io.github.jo_barbosa.citebook.application.ports.out.chunk.ChunkStorePort;
 import io.github.jo_barbosa.citebook.application.ports.out.course.CourseRepositoryPort;
 import io.github.jo_barbosa.citebook.domain.exceptions.CourseNotFoundException;
 import io.github.jo_barbosa.citebook.domain.model.chunk.ChunkMatch;
+import io.github.jo_barbosa.citebook.domain.model.citation.CheckedAnswer;
+import io.github.jo_barbosa.citebook.domain.model.citation.CitationValidator;
 import io.github.jo_barbosa.citebook.domain.model.question.Excerpt;
+import io.github.jo_barbosa.citebook.domain.model.question.PromptBuilder;
 
 @Service
 public class QuestionService implements QuestionUseCases {
 
+	/** Spec 5: questions are short; longer input is refused before any search or model call. */
+	public static final int MAX_QUESTION_LENGTH = 1000;
+
+	public static final String NO_MATERIAL_ANSWER = "No relevant material was found in this course for this question.";
+
 	private final CourseRepositoryPort courses;
 	private final ChunkStorePort chunkStore;
 	private final SearchSettings settings;
+	private final ChatPort chat;
+	// Stateless domain logic with no configuration: created here, not injected.
+	private final PromptBuilder prompts = new PromptBuilder();
+	private final CitationValidator citations = new CitationValidator();
 
-	public QuestionService(CourseRepositoryPort courses, ChunkStorePort chunkStore, SearchSettings settings) {
+	public QuestionService(CourseRepositoryPort courses, ChunkStorePort chunkStore, SearchSettings settings,
+			ChatPort chat) {
 		this.courses = courses;
 		this.chunkStore = chunkStore;
 		this.settings = settings;
+		this.chat = chat;
 	}
 
 	@Override
@@ -44,6 +61,28 @@ public class QuestionService implements QuestionUseCases {
 		return IntStream.range(0, matches.size())
 				.mapToObj(i -> toExcerpt(i + 1, matches.get(i)))
 				.toList();
+	}
+
+	@Override
+	public AnswerView ask(AskCommand command) {
+		String question = command.question();
+		if (question == null || question.isBlank()) {
+			throw new IllegalArgumentException("question must not be blank");
+		}
+		if (question.length() > MAX_QUESTION_LENGTH) {
+			throw new IllegalArgumentException("question must be at most " + MAX_QUESTION_LENGTH
+					+ " characters, got " + question.length());
+		}
+
+		List<Excerpt> excerpts = search(new SearchCommand(command.courseCode(), question, null));
+		if (excerpts.isEmpty()) {
+			// Without material the model could only answer from its own knowledge: no call.
+			return new AnswerView(NO_MATERIAL_ANSWER, false, List.of());
+		}
+
+		String answer = chat.complete(prompts.systemMessage(), prompts.userMessage(question, excerpts));
+		CheckedAnswer checked = citations.check(answer, excerpts);
+		return new AnswerView(checked.text(), checked.grounded(), checked.citations());
 	}
 
 	private static Excerpt toExcerpt(int n, ChunkMatch match) {

@@ -113,7 +113,9 @@ class RetrievalEvaluationTest {
 				new PdfReaderAdapter(), new PageChunker(CHUNK_SIZE, CHUNK_OVERLAP),
 				new TransactionTemplate(new DataSourceTransactionManager(TestDatabase.dataSource())));
 		QuestionUseCases questions = new QuestionService(courses, chunkStore,
-				new SearchSettings(SEARCH_DEPTH, SEARCH_DEPTH, SCORE_THRESHOLD));
+				new SearchSettings(SEARCH_DEPTH, SEARCH_DEPTH, SCORE_THRESHOLD), (system, user) -> {
+					throw new UnsupportedOperationException("the retrieval evaluation never calls the chat model");
+				});
 
 		IngestDocumentView ingested = documents.ingest(new IngestDocumentCommand(COURSE, DOCUMENT, corpus()));
 

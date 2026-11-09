@@ -8,4 +8,6 @@ public interface QuestionUseCases {
 
 	List<Excerpt> search(SearchCommand command);
 
+	AnswerView ask(AskCommand command);
+
 }
