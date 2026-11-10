@@ -23,7 +23,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 
 ## Design choices
 
-**Hand-written RAG core.** Spring AI supplies the building blocks (`VectorStore`, `DocumentReader`, `EmbeddingModel`, `ChatModel`, `@Tool`). Chunking, prompt construction, citation checking and evaluation are written in this project's own code, not delegated to Spring AI advisors, so each step can be read and explained without the framework.
+**Hand-written RAG core.** Spring AI supplies the building blocks (`VectorStore`, `DocumentReader`, `EmbeddingModel`, `ChatModel`, `@McpTool`). Chunking, prompt construction, citation checking and evaluation are written in this project's own code, not delegated to Spring AI advisors, so each step can be read and explained without the framework.
 
 **Chunking** (`PageChunker`). Each page is chunked on its own, so every chunk maps to exactly one page and a citation can point to it. Chunks are up to 800 characters (chosen with the retrieval evaluation) with about 15% overlap. A cut prefers a paragraph break, then a sentence end, and only then a hard cut, and it never falls in the first half of a chunk. Pages with almost no text are skipped.
 
