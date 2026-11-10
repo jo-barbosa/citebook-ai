@@ -3,6 +3,8 @@ package io.github.jo_barbosa.citebook.application.services.question;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import io.github.jo_barbosa.citebook.application.ports.in.question.AnswerView;
@@ -18,9 +20,13 @@ import io.github.jo_barbosa.citebook.domain.model.citation.CheckedAnswer;
 import io.github.jo_barbosa.citebook.domain.model.citation.CitationValidator;
 import io.github.jo_barbosa.citebook.domain.model.question.Excerpt;
 import io.github.jo_barbosa.citebook.domain.model.question.PromptBuilder;
+import io.github.jo_barbosa.citebook.domain.model.text.InvisibleCharacterFilter;
+import io.github.jo_barbosa.citebook.domain.model.text.StrippedText;
 
 @Service
 public class QuestionService implements QuestionUseCases {
+
+	private static final Logger log = LoggerFactory.getLogger(QuestionService.class);
 
 	/** Spec 5: questions are short; longer input is refused before any search or model call. */
 	public static final int MAX_QUESTION_LENGTH = 1000;
@@ -34,6 +40,7 @@ public class QuestionService implements QuestionUseCases {
 	// Stateless domain logic with no configuration: created here, not injected.
 	private final PromptBuilder prompts = new PromptBuilder();
 	private final CitationValidator citations = new CitationValidator();
+	private final InvisibleCharacterFilter invisible = new InvisibleCharacterFilter();
 
 	public QuestionService(CourseRepositoryPort courses, ChunkStorePort chunkStore, SearchSettings settings,
 			ChatPort chat) {
@@ -65,13 +72,22 @@ public class QuestionService implements QuestionUseCases {
 
 	@Override
 	public AnswerView ask(AskCommand command) {
-		String question = command.question();
-		if (question == null || question.isBlank()) {
+		String raw = command.question();
+		if (raw == null || raw.isBlank()) {
 			throw new IllegalArgumentException("question must not be blank");
 		}
-		if (question.length() > MAX_QUESTION_LENGTH) {
+		if (raw.length() > MAX_QUESTION_LENGTH) {
 			throw new IllegalArgumentException("question must be at most " + MAX_QUESTION_LENGTH
-					+ " characters, got " + question.length());
+					+ " characters, got " + raw.length());
+		}
+		StrippedText stripped = invisible.strip(raw);
+		if (stripped.removed() > 0) {
+			log.warn("Removed {} invisible characters from a question", stripped.removed());
+		}
+		String question = stripped.text();
+		if (question.isBlank()) {
+			// Only invisible characters: nothing to search for, so nothing the model may answer from.
+			return new AnswerView(NO_MATERIAL_ANSWER, false, List.of());
 		}
 
 		List<Excerpt> excerpts = search(new SearchCommand(command.courseCode(), question, null));

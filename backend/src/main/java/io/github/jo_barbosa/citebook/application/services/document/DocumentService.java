@@ -2,10 +2,13 @@ package io.github.jo_barbosa.citebook.application.services.document;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionOperations;
 
@@ -23,9 +26,13 @@ import io.github.jo_barbosa.citebook.domain.model.chunk.Page;
 import io.github.jo_barbosa.citebook.domain.model.chunk.PageChunker;
 import io.github.jo_barbosa.citebook.domain.model.course.Course;
 import io.github.jo_barbosa.citebook.domain.model.document.Document;
+import io.github.jo_barbosa.citebook.domain.model.text.InvisibleCharacterFilter;
+import io.github.jo_barbosa.citebook.domain.model.text.StrippedText;
 
 @Service
 public class DocumentService implements DocumentUseCases {
+
+	private static final Logger log = LoggerFactory.getLogger(DocumentService.class);
 
 	private final CourseRepositoryPort courses;
 	private final DocumentRepositoryPort documents;
@@ -33,6 +40,8 @@ public class DocumentService implements DocumentUseCases {
 	private final PdfReaderPort pdfReader;
 	private final PageChunker chunker;
 	private final TransactionOperations transaction;
+	// Stateless domain logic with no configuration: created here, not injected.
+	private final InvisibleCharacterFilter invisible = new InvisibleCharacterFilter();
 
 	public DocumentService(CourseRepositoryPort courses, DocumentRepositoryPort documents, ChunkStorePort chunkStore,
 			PdfReaderPort pdfReader, PageChunker chunker, TransactionOperations transaction) {
@@ -55,13 +64,24 @@ public class DocumentService implements DocumentUseCases {
 					IngestStatus.ALREADY_INDEXED);
 		}
 
-		List<Page> pages = pdfReader.readPages(command.fileName(), command.content());
+		List<Page> pages = new ArrayList<>();
+		int removed = 0;
+		for (Page page : pdfReader.readPages(command.fileName(), command.content())) {
+			StrippedText stripped = invisible.strip(page.text());
+			pages.add(new Page(page.number(), stripped.text()));
+			removed += stripped.removed();
+		}
 		List<Chunk> chunks = chunker.chunk(pages);
 		if (chunks.isEmpty()) {
 			throw new PdfWithoutTextException(command.fileName());
 		}
 
-		return transaction.execute(status -> store(command, sha256, pages.size(), chunks, existing));
+		IngestDocumentView view = transaction.execute(status -> store(command, sha256, pages.size(), chunks, existing));
+		if (removed > 0) {
+			// The id, not the file name: the name comes from the client and could forge log lines.
+			log.warn("Removed {} invisible characters from document {}", removed, view.documentId());
+		}
+		return view;
 	}
 
 	private IngestDocumentView store(IngestDocumentCommand command, String sha256, int pageCount, List<Chunk> chunks,

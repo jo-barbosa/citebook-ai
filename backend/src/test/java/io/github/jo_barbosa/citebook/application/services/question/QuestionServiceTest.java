@@ -133,6 +133,30 @@ class QuestionServiceTest {
 	}
 
 	@Test
+	void removesInvisibleCharactersFromTheQuestionBeforeSearchingAndAsking() {
+		chunkStore.matches = List.of(new ChunkMatch("graphs.pdf", 12, "Dijkstra finds shortest paths.", 0.91));
+		chat.answer = "It finds shortest paths [1].";
+
+		service.ask(new AskCommand("esinf", "What does\u200B Dijkstra do?" + Character.toString(0xE0041)));
+
+		assertThat(chunkStore.searches).containsExactly(
+				new RecordingChunkStore.Search("esinf", "What does Dijkstra do?", 5, 0.3));
+		assertThat(chat.calls).singleElement()
+				.extracting(RecordingChat.Call::userMessage)
+				.asString()
+				.endsWith("Question: What does Dijkstra do?");
+	}
+
+	@Test
+	void aQuestionOfOnlyInvisibleCharactersGetsTheNoMaterialAnswer() {
+		AnswerView answer = service.ask(new AskCommand("esinf", "\u200B\u200B"));
+
+		assertThat(answer).isEqualTo(new AnswerView(QuestionService.NO_MATERIAL_ANSWER, false, List.of()));
+		assertThat(chunkStore.searches).isEmpty();
+		assertThat(chat.calls).isEmpty();
+	}
+
+	@Test
 	void anAnswerWithoutValidCitationsIsNotGrounded() {
 		chunkStore.matches = List.of(new ChunkMatch("graphs.pdf", 12, "Dijkstra finds shortest paths.", 0.91));
 		chat.answer = "Dijkstra is a well-known algorithm.";

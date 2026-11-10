@@ -16,6 +16,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 | Embeddings stored in pgvector, filtered by course | Done |
 | Errors as RFC 9457 Problem Details, OpenAPI / Swagger UI | Done |
 | Answers with checked citations (file + page) | Done |
+| Prompt-injection hardening (invisible characters, attack test) | In progress |
 | Read-only MCP tools | Planned |
 | Retrieval evaluation (hit rate@k, MRR) as a test | Done |
 | Angular UI | Planned |
@@ -31,6 +32,8 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 **Course-filtered vector search.** All courses share one table and one HNSW index. With a filter, pgvector first reads the nearest chunks from the index (about 40 by default) and only then drops those of other courses, so a small course could get no results although it has relevant material. A Flyway migration and the connection pool turn on iterative index scans (`hnsw.iterative_scan = strict_order`), which keep reading the index until `k` chunks of the course are found (up to a scan limit). The same migration adds a GIN index on the metadata for the course and document filters.
 
 **Prompt-injection hygiene** (`PromptBuilder`). Retrieved excerpts go into the prompt inside `<excerpt>` tags with their number, file and page, and the system prompt states that excerpts are data, not instructions. All text that is not ours (chunk text, file names, the question) is escaped as XML text, so a PDF or a question containing `</excerpt>` cannot close its tag or forge an excerpt with a fake source. This protects the prompt's structure; an instruction written as plain text still reaches the model, which is why citations are also checked against the excerpts actually sent.
+
+**Invisible characters** (`InvisibleCharacterFilter`). Text can carry instructions a person does not see but the model reads: tag characters (U+E0000–U+E007F, an invisible copy of ASCII), zero-width spaces and joiners, bidi controls, variation selectors. Every page is stripped of all Unicode format characters (category Cf) and variation selectors before chunking, and so is the question, so the model sees what a person sees. The text is cleaned, not rejected: ordinary PDFs contain stray zero-width spaces and soft hyphens, and removing a character nobody sees changes nothing a reader sees. The number removed is logged, never the text. Instructions written as visible text (or as white text) are not affected; the citation check and the attack test cover those.
 
 **Citation check** (`CitationValidator`). The answer cites excerpts as `[n]`. Every number is checked against the excerpts actually sent to the model: a citation that points to no excerpt is removed from the text and counted, a grouped one keeps only its valid numbers (`[1, 9, 3]` becomes `[1, 3]`), and an answer with no valid citation is marked as not grounded. Brackets in code (`a[0]`, code blocks) and numbers longer than 3 digits are not treated as citations. The check proves each citation points to a real file and page, not that the claim is in it.
 

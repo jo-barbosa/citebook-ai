@@ -13,6 +13,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.transaction.support.TransactionOperations;
 
 import io.github.jo_barbosa.citebook.application.ports.in.document.DocumentUseCases;
@@ -32,6 +35,7 @@ import io.github.jo_barbosa.citebook.domain.model.course.Course;
 import io.github.jo_barbosa.citebook.domain.model.course.CourseSummary;
 import io.github.jo_barbosa.citebook.domain.model.document.Document;
 
+@ExtendWith(OutputCaptureExtension.class)
 class DocumentServiceTest {
 
 	private static final List<Page> TWO_PAGES = List.of(
@@ -80,6 +84,34 @@ class DocumentServiceTest {
 
 		assertThat(courses.byCode).hasSize(1);
 		assertThat(documents.stored.getFirst().courseId()).isEqualTo(existing.id());
+	}
+
+	@Test
+	void removesInvisibleCharactersBeforeChunking() {
+		pdfReader.pages = List.of(new Page(1, "A heap\u200B is a complete binary tree.\u202E"));
+
+		ingest("v1");
+
+		assertThat(chunkStore.saved).singleElement()
+				.satisfies(saved -> assertThat(saved.chunks()).extracting(Chunk::text)
+						.containsExactly("A heap is a complete binary tree."));
+	}
+
+	@Test
+	void aPdfWithOnlyInvisibleTextHasNoText() {
+		pdfReader.pages = List.of(new Page(1, "\u200B".repeat(25)));
+
+		assertThatThrownBy(() -> ingest("v1")).isInstanceOf(PdfWithoutTextException.class);
+		assertThat(chunkStore.saved).isEmpty();
+	}
+
+	@Test
+	void logsHowManyInvisibleCharactersWereRemoved(CapturedOutput output) {
+		pdfReader.pages = List.of(new Page(1, "A heap\u200B is\u200B a complete binary tree."));
+
+		IngestDocumentView view = ingest("v1");
+
+		assertThat(output).contains("Removed 2 invisible characters from document " + view.documentId());
 	}
 
 	@Test
