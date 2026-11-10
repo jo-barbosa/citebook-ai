@@ -25,6 +25,11 @@ spring:
     ollama:
       embedding:
         model: bge-m3
+    mcp:
+      server:
+        # Streamable HTTP at /mcp (the starter's defaults); tools are the @McpTool methods in adapters/in/mcp.
+        name: citebook-ai
+        version: 0.0.1
     vectorstore:
       pgvector:
         initialize-schema: false

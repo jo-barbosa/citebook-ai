@@ -4,7 +4,7 @@ Ask questions about a course's PDFs and get answers that cite their source (file
 
 citebook-ai is a retrieval-augmented generation (RAG) service. You upload a course's PDFs, it splits them into chunks, embeds them and stores them in pgvector. A question is answered only from the most relevant excerpts, and every citation in the answer is checked against the excerpts that were actually retrieved. The same engine is exposed through a REST API (for an Angular UI) and an MCP server (for external assistants such as Claude Desktop).
 
-> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval, the retrieval evaluation and question answering with checked citations work today. The MCP tools and the Angular UI are next.
+> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval, the retrieval evaluation and question answering with checked citations and the MCP tools work today. Connecting MCP clients and the Angular UI are next.
 
 ## Features
 
@@ -17,7 +17,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 | Errors as RFC 9457 Problem Details, OpenAPI / Swagger UI | Done |
 | Answers with checked citations (file + page) | Done |
 | Prompt-injection hardening (invisible characters, attack test, demo) | Done |
-| Read-only MCP tools | Planned |
+| Read-only MCP tools | Done |
 | Retrieval evaluation (hit rate@k, MRR) as a test | Done |
 | Angular UI | Planned |
 
@@ -36,6 +36,8 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 **Invisible characters** (`InvisibleCharacterFilter`). Text can carry instructions a person does not see but the model reads: tag characters (U+E0000–U+E007F, an invisible copy of ASCII), zero-width spaces and joiners, bidi controls, variation selectors. Every page is stripped of all Unicode format characters (category Cf) and variation selectors before chunking, and so are the file name (it reaches the prompt as the excerpt's source) and the question, so the model sees what a person sees. Documents indexed before this change keep their text until they are uploaded again. The text is cleaned, not rejected: ordinary PDFs contain stray zero-width spaces and soft hyphens, and removing a character nobody sees changes nothing a reader sees. The number removed is logged, never the text. Instructions written as visible text (or as white text) are not affected; the citation check and the attack test cover those.
 
 **Citation check** (`CitationValidator`). The answer cites excerpts as `[n]`. Every number is checked against the excerpts actually sent to the model: a citation that points to no excerpt is removed from the text and counted, a grouped one keeps only its valid numbers (`[1, 9, 3]` becomes `[1, 3]`), and an answer with no valid citation is marked as not grounded. Brackets in code (`a[0]`, code blocks) and numbers longer than 3 digits are not treated as citations. The check proves each citation points to a real file and page, not that the claim is in it.
+
+**MCP tools** (`CourseMaterialTools`). The app is also an MCP server (Streamable HTTP at `/mcp`) with two tools: `list_courses` and `search_course_material(courseCode, query)`. They call the same use cases as the REST API and are a second inbound adapter, with no change to the application or domain code. Search returns the excerpts with file name and page and never calls this project's chat model: the assistant that called the tool writes the answer. Both tools are declared read-only (`readOnlyHint`), the number of excerpts is fixed by configuration (the caller cannot ask for more), and the query is limited to 1000 characters. The result starts by stating that excerpts are data, not instructions. An unknown course returns a message listing the valid codes, so the assistant can correct its call.
 
 **Hexagonal architecture.** The domain (`course`, `document`, `chunk`, `citation`) is plain Java with no framework types. The REST controllers and MCP tools are two inbound adapters calling the same use cases; pgvector, the PDF reader and the LLM are outbound adapters behind ports.
 
@@ -157,6 +159,13 @@ Every `[n]` in the answer points to a citation with its file, page and excerpt; 
 | `400` | Invalid course code, or a blank or too long question (1000 characters at most) |
 | `404` | No course with that code |
 | `503` | Embedding service or chat model unavailable |
+
+MCP server (Streamable HTTP): `http://localhost:8080/mcp`.
+
+| Tool | Returns |
+| --- | --- |
+| `list_courses` | Course codes with their document counts |
+| `search_course_material(courseCode, query)` | The most relevant excerpts of one course, each with file name and page |
 
 ## Tests
 
