@@ -4,7 +4,7 @@ Ask questions about a course's PDFs and get answers that cite their source (file
 
 citebook-ai is a retrieval-augmented generation (RAG) service. You upload a course's PDFs, it splits them into chunks, embeds them and stores them in pgvector. A question is answered only from the most relevant excerpts, and every citation in the answer is checked against the excerpts that were actually retrieved. The same engine is exposed through a REST API (for an Angular UI) and an MCP server (for external assistants such as Claude Desktop).
 
-> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval, the retrieval evaluation and question answering with checked citations and the MCP tools work today. Connecting MCP clients and the Angular UI are next.
+> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval, the retrieval evaluation and question answering with checked citations and the MCP tools work today. The Angular UI is next.
 
 ## Features
 
@@ -166,6 +166,39 @@ MCP server (Streamable HTTP): `http://localhost:8080/mcp`.
 | --- | --- |
 | `list_courses` | Course codes with their document counts |
 | `search_course_material(courseCode, query)` | The most relevant excerpts of one course, each with file name and page |
+
+### Connect an assistant (MCP)
+
+With the app running, any MCP client that speaks Streamable HTTP can use `http://localhost:8080/mcp`. The endpoint has no authentication: keep it on your own machine.
+
+**Claude Code.** The repository includes a project configuration (`.mcp.json`), so Claude Code offers the `citebook` server when it is started in the repository folder. Approve it, then check with `/mcp`. To add it by hand in another folder:
+
+```bash
+claude mcp add --transport http citebook http://localhost:8080/mcp
+```
+
+**Claude Desktop.** It starts local (stdio) servers from its configuration file, so [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) bridges to the HTTP endpoint (needs Node.js). In Settings → Developer → Edit Config (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "citebook": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:8080/mcp"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop. Then ask, for example: *"Using citebook, how does a skiplist choose the height of a new element in course `ods`? Cite file and page."* The assistant calls `list_courses` and `search_course_material` and writes the answer itself from the excerpts.
+
+The protocol can also be driven by hand. A session starts with `initialize`, and the server returns its id in the `Mcp-Session-Id` header:
+
+```bash
+curl -i -X POST http://localhost:8080/mcp \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
+```
 
 ## Tests
 
