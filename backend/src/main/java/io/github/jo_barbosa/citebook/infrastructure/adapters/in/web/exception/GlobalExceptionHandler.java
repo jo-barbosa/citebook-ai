@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,8 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.unit.DataSize;
+import org.springframework.validation.FieldError;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -74,7 +77,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 			HttpHeaders headers, HttpStatusCode status, WebRequest request) {
 		String detail = ex.getParameterValidationResults().stream()
 				.flatMap(result -> result.getResolvableErrors().stream()
-						.map(error -> result.getMethodParameter().getParameterName() + ": " + error.getDefaultMessage()))
+						.map(error -> name(result, error) + ": " + error.getDefaultMessage()))
 				.collect(Collectors.joining("; "));
 		return handleExceptionInternal(ex, ProblemDetail.forStatusAndDetail(status, detail), headers, status, request);
 	}
@@ -101,6 +104,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		problem.setTitle(title);
 		problem.setProperty("timestamp", Instant.now());
 		return problem;
+	}
+
+	/**
+	 * The name the client sent: the field for an error inside a request body ("question"), the parameter otherwise
+	 * ("courseCode"). With a constraint on a path variable, Spring validates the whole method, so body errors arrive
+	 * here too.
+	 */
+	private static String name(ParameterValidationResult result, MessageSourceResolvable error) {
+		return error instanceof FieldError field ? field.getField() : result.getMethodParameter().getParameterName();
 	}
 
 	private static String slug(HttpStatusCode status) {

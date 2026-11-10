@@ -4,7 +4,7 @@ Ask questions about a course's PDFs and get answers that cite their source (file
 
 citebook-ai is a retrieval-augmented generation (RAG) service. You upload a course's PDFs, it splits them into chunks, embeds them and stores them in pgvector. A question is answered only from the most relevant excerpts, and every citation in the answer is checked against the excerpts that were actually retrieved. The same engine is exposed through a REST API (for an Angular UI) and an MCP server (for external assistants such as Claude Desktop).
 
-> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval and the retrieval evaluation work today. Question answering with citations, the MCP tools and the Angular UI are next.
+> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval, the retrieval evaluation and question answering with checked citations work today. The MCP tools and the Angular UI are next.
 
 ## Features
 
@@ -15,7 +15,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 | Page-aware chunking with overlap | Done |
 | Embeddings stored in pgvector, filtered by course | Done |
 | Errors as RFC 9457 Problem Details, OpenAPI / Swagger UI | Done |
-| Answers with checked citations (file + page) | Planned |
+| Answers with checked citations (file + page) | Done |
 | Read-only MCP tools | Planned |
 | Retrieval evaluation (hit rate@k, MRR) as a test | Done |
 | Angular UI | Planned |
@@ -30,7 +30,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 
 **Course-filtered vector search.** All courses share one table and one HNSW index. With a filter, pgvector first reads the nearest chunks from the index (about 40 by default) and only then drops those of other courses, so a small course could get no results although it has relevant material. A Flyway migration and the connection pool turn on iterative index scans (`hnsw.iterative_scan = strict_order`), which keep reading the index until `k` chunks of the course are found (up to a scan limit). The same migration adds a GIN index on the metadata for the course and document filters.
 
-**Prompt-injection hygiene** (`PromptBuilder`). Retrieved excerpts go into the prompt inside `<excerpt>` tags with their number, file and page, and the system prompt states that excerpts are data, not instructions. All text that is not ours (chunk text, file names, the question) is escaped as XML text, so a PDF or a question containing `</excerpt>` cannot close its tag or forge an excerpt with a fake source. This protects the prompt's structure; an instruction written as plain text still reaches the model, which is why citations are also checked against the excerpts actually sent (planned).
+**Prompt-injection hygiene** (`PromptBuilder`). Retrieved excerpts go into the prompt inside `<excerpt>` tags with their number, file and page, and the system prompt states that excerpts are data, not instructions. All text that is not ours (chunk text, file names, the question) is escaped as XML text, so a PDF or a question containing `</excerpt>` cannot close its tag or forge an excerpt with a fake source. This protects the prompt's structure; an instruction written as plain text still reaches the model, which is why citations are also checked against the excerpts actually sent.
 
 **Citation check** (`CitationValidator`). The answer cites excerpts as `[n]`. Every number is checked against the excerpts actually sent to the model: a citation that points to no excerpt is removed from the text and counted, a grouped one keeps only its valid numbers (`[1, 9, 3]` becomes `[1, 3]`), and an answer with no valid citation is marked as not grounded. Brackets in code (`a[0]`, code blocks) and numbers longer than 3 digits are not treated as citations. The check proves each citation points to a real file and page, not that the claim is in it.
 
@@ -127,6 +127,33 @@ curl http://localhost:8080/api/courses
 ```json
 [{ "code": "my-course", "documents": 1 }]
 ```
+
+Ask a question about a course:
+
+```bash
+curl -H "Content-Type: application/json" \
+  -d '{"question": "How does a skiplist choose the height of a new element?"}' \
+  http://localhost:8080/api/courses/my-course/questions
+```
+
+```json
+{
+  "answer": "It tosses a coin until it comes up tails; the height is the number of heads [1].",
+  "grounded": true,
+  "citations": [
+    { "n": 1, "fileName": "notes.pdf", "page": 7, "excerpt": "…" }
+  ]
+}
+```
+
+Every `[n]` in the answer points to a citation with its file, page and excerpt; citations the model invents are removed. `grounded` is `false` when the answer cites nothing, including when the course has no relevant material (the model is then not called and the answer says so).
+
+| Status | Meaning |
+| --- | --- |
+| `200` | The answer, grounded or not |
+| `400` | Invalid course code, or a blank or too long question (1000 characters at most) |
+| `404` | No course with that code |
+| `503` | Embedding service or chat model unavailable |
 
 ## Tests
 
