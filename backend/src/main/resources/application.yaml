@@ -27,7 +27,8 @@ spring:
         model: bge-m3
     mcp:
       server:
-        # Streamable HTTP at /mcp (the starter's defaults); tools are the @McpTool methods in adapters/in/mcp.
+        # Streamable HTTP at /mcp. The protocol must be set: without it the starter serves the legacy SSE transport.
+        protocol: STREAMABLE
         name: citebook-ai
         version: 0.0.1
     vectorstore:
