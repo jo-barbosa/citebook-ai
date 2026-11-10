@@ -17,6 +17,8 @@ import io.github.jo_barbosa.citebook.application.ports.in.question.QuestionUseCa
 import io.github.jo_barbosa.citebook.application.ports.in.question.SearchCommand;
 import io.github.jo_barbosa.citebook.domain.exceptions.NotFoundException;
 import io.github.jo_barbosa.citebook.domain.model.question.Excerpt;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 
 /**
  * The MCP inbound adapter: two read-only tools for external assistants, on the same use cases as the REST API.
@@ -35,22 +37,33 @@ public class CourseMaterialTools {
 
 	static final String UNEXPECTED_ERROR = "The tool failed unexpectedly. Try again later.";
 
+	static final String LIST_COURSES = "list_courses";
+
+	static final String SEARCH_COURSE_MATERIAL = "search_course_material";
+
 	private static final Logger log = LoggerFactory.getLogger(CourseMaterialTools.class);
 
 	private final CourseUseCases courseUseCases;
 	private final QuestionUseCases questionUseCases;
+	private final Counter listCoursesCalls;
+	private final Counter searchCourseMaterialCalls;
 
-	public CourseMaterialTools(CourseUseCases courseUseCases, QuestionUseCases questionUseCases) {
+	public CourseMaterialTools(CourseUseCases courseUseCases, QuestionUseCases questionUseCases,
+			MeterRegistry registry) {
 		this.courseUseCases = courseUseCases;
 		this.questionUseCases = questionUseCases;
+		// Registered here, at startup, so both are exposed with value 0 before the first call.
+		this.listCoursesCalls = callCounter(registry, LIST_COURSES);
+		this.searchCourseMaterialCalls = callCounter(registry, SEARCH_COURSE_MATERIAL);
 	}
 
-	@McpTool(name = "list_courses",
+	@McpTool(name = LIST_COURSES,
 			description = "Lists the courses that have indexed material, with the number of documents in each. "
 					+ "Call it first to get a valid course code for search_course_material.",
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false,
 					idempotentHint = true, openWorldHint = false))
 	public String listCourses() {
+		listCoursesCalls.increment();
 		return answer(() -> {
 			List<CourseView> courses = courseUseCases.list();
 			if (courses.isEmpty()) {
@@ -62,7 +75,7 @@ public class CourseMaterialTools {
 		});
 	}
 
-	@McpTool(name = "search_course_material",
+	@McpTool(name = SEARCH_COURSE_MATERIAL,
 			description = "Searches one course's documents and returns the most relevant excerpts, each with its "
 					+ "file name and page. Returns at most a few excerpts. Answer from them and cite file and page.",
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false,
@@ -70,6 +83,7 @@ public class CourseMaterialTools {
 	public String searchCourseMaterial(
 			@McpToolParam(description = "Course code, as returned by list_courses, for example 'esinf'") String courseCode,
 			@McpToolParam(description = "What to look for, in natural language; at most 1000 characters") String query) {
+		searchCourseMaterialCalls.increment();
 		return answer(() -> {
 			if (query != null && query.length() > QuestionUseCases.MAX_QUESTION_LENGTH) {
 				throw new IllegalArgumentException("query must be at most " + QuestionUseCases.MAX_QUESTION_LENGTH
@@ -85,6 +99,14 @@ public class CourseMaterialTools {
 							+ excerpt.text())
 					.collect(Collectors.joining("\n\n", EXCERPTS_NOTICE + "\n\n", ""));
 		});
+	}
+
+	/** One counter per tool, told apart by the {@code tool} tag; failed calls count too. */
+	private static Counter callCounter(MeterRegistry registry, String tool) {
+		return Counter.builder("citebook.mcp.tool.calls")
+				.description("Calls to an MCP tool, including calls that returned an error message")
+				.tag("tool", tool)
+				.register(registry);
 	}
 
 	/** Runs a tool body; a failure becomes the tool's text (spec 7) instead of a protocol error. */

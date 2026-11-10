@@ -19,13 +19,17 @@ import io.github.jo_barbosa.citebook.application.ports.in.question.QuestionUseCa
 import io.github.jo_barbosa.citebook.application.ports.in.question.SearchCommand;
 import io.github.jo_barbosa.citebook.domain.exceptions.CourseNotFoundException;
 import io.github.jo_barbosa.citebook.domain.model.question.Excerpt;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class CourseMaterialToolsTest {
 
 	private final CourseUseCases courseUseCases = mock(CourseUseCases.class);
 	private final QuestionUseCases questionUseCases = mock(QuestionUseCases.class);
 
-	private final CourseMaterialTools tools = new CourseMaterialTools(courseUseCases, questionUseCases);
+	private final MeterRegistry registry = new SimpleMeterRegistry();
+
+	private final CourseMaterialTools tools = new CourseMaterialTools(courseUseCases, questionUseCases, registry);
 
 	@Test
 	void listCoursesListsEachCourseWithItsDocumentCount() {
@@ -127,6 +131,36 @@ class CourseMaterialToolsTest {
 
 		assertThat(tools.searchCourseMaterial("esinf", "What does Dijkstra do?"))
 				.isEqualTo(CourseMaterialTools.UNEXPECTED_ERROR);
+	}
+
+	@Test
+	void registersACallCounterPerToolAtZero() {
+		assertThat(calls("list_courses")).isZero();
+		assertThat(calls("search_course_material")).isZero();
+	}
+
+	@Test
+	void countsEachCallUnderItsTool() {
+		tools.listCourses();
+		tools.listCourses();
+		tools.searchCourseMaterial("esinf", "What does Dijkstra do?");
+
+		assertThat(calls("list_courses")).isEqualTo(2.0);
+		assertThat(calls("search_course_material")).isEqualTo(1.0);
+	}
+
+	@Test
+	void countsACallThatFails() {
+		when(questionUseCases.search(any())).thenThrow(new CourseNotFoundException("esimf", List.of("esinf")));
+
+		tools.searchCourseMaterial("esimf", "What does Dijkstra do?");
+
+		assertThat(calls("search_course_material")).isEqualTo(1.0);
+	}
+
+	/** {@code get(...).counter()} throws if no counter has that name and tag. */
+	private double calls(String tool) {
+		return registry.get("citebook.mcp.tool.calls").tag("tool", tool).counter().count();
 	}
 
 }
