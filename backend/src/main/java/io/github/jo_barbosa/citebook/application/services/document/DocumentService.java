@@ -54,7 +54,11 @@ public class DocumentService implements DocumentUseCases {
 	}
 
 	@Override
-	public IngestDocumentView ingest(IngestDocumentCommand command) {
+	public IngestDocumentView ingest(IngestDocumentCommand original) {
+		// The file name reaches the prompt as the excerpt source, so it is cleaned like the page text.
+		StrippedText fileName = invisible.strip(original.fileName());
+		IngestDocumentCommand command = new IngestDocumentCommand(original.courseCode(), fileName.text(),
+				original.content());
 		String sha256 = sha256(command.content());
 		Optional<Document> existing = courses.findByCode(command.courseCode())
 				.flatMap(course -> documents.findByCourseIdAndFileName(course.id(), command.fileName()));
@@ -65,7 +69,7 @@ public class DocumentService implements DocumentUseCases {
 		}
 
 		List<Page> pages = new ArrayList<>();
-		int removed = 0;
+		int removed = fileName.removed();
 		for (Page page : pdfReader.readPages(command.fileName(), command.content())) {
 			StrippedText stripped = invisible.strip(page.text());
 			pages.add(new Page(page.number(), stripped.text()));

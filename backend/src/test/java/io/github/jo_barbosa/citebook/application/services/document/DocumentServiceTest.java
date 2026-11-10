@@ -87,6 +87,19 @@ class DocumentServiceTest {
 	}
 
 	@Test
+	void removesInvisibleCharactersFromTheFileName() {
+		pdfReader.pages = TWO_PAGES;
+		String dirty = "notes" + Character.toString(0xE0041) + "\u200B.pdf";
+
+		service.ingest(new IngestDocumentCommand("esinf", dirty, "v1".getBytes(StandardCharsets.UTF_8)));
+
+		assertThat(documents.stored).singleElement()
+				.satisfies(document -> assertThat(document.fileName()).isEqualTo("notes.pdf"));
+		assertThat(chunkStore.saved).singleElement()
+				.satisfies(saved -> assertThat(saved.fileName()).isEqualTo("notes.pdf"));
+	}
+
+	@Test
 	void removesInvisibleCharactersBeforeChunking() {
 		pdfReader.pages = List.of(new Page(1, "A heap\u200B is a complete binary tree.\u202E"));
 
