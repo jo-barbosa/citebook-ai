@@ -31,6 +31,10 @@ spring:
         protocol: STREAMABLE
         name: citebook-ai
         version: 0.0.1
+        capabilities: # the server has tools only; do not advertise what it does not offer
+          prompt: false
+          resource: false
+          completion: false
     vectorstore:
       pgvector:
         initialize-schema: false

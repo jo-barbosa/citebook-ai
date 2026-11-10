@@ -39,6 +39,16 @@ class McpServerTest {
 	}
 
 	@Test
+	void advertisesOnlyTheToolsCapability() {
+		McpSchema.ServerCapabilities capabilities = server.getServerCapabilities();
+
+		assertThat(capabilities.tools()).isNotNull();
+		assertThat(capabilities.prompts()).isNull();
+		assertThat(capabilities.resources()).isNull();
+		assertThat(capabilities.completions()).isNull();
+	}
+
+	@Test
 	void exposesExactlyTheTwoToolsAndBothAreReadOnly() {
 		List<McpSchema.Tool> tools = server.listTools();
 
