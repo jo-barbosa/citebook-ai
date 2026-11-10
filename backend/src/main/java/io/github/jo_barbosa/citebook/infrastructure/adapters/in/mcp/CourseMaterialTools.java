@@ -15,7 +15,6 @@ import io.github.jo_barbosa.citebook.application.ports.in.course.CourseUseCases;
 import io.github.jo_barbosa.citebook.application.ports.in.course.CourseView;
 import io.github.jo_barbosa.citebook.application.ports.in.question.QuestionUseCases;
 import io.github.jo_barbosa.citebook.application.ports.in.question.SearchCommand;
-import io.github.jo_barbosa.citebook.application.services.question.QuestionService;
 import io.github.jo_barbosa.citebook.domain.exceptions.NotFoundException;
 import io.github.jo_barbosa.citebook.domain.model.question.Excerpt;
 
@@ -72,8 +71,8 @@ public class CourseMaterialTools {
 			@McpToolParam(description = "Course code, as returned by list_courses, for example 'esinf'") String courseCode,
 			@McpToolParam(description = "What to look for, in natural language; at most 1000 characters") String query) {
 		return answer(() -> {
-			if (query != null && query.length() > QuestionService.MAX_QUESTION_LENGTH) {
-				throw new IllegalArgumentException("query must be at most " + QuestionService.MAX_QUESTION_LENGTH
+			if (query != null && query.length() > QuestionUseCases.MAX_QUESTION_LENGTH) {
+				throw new IllegalArgumentException("query must be at most " + QuestionUseCases.MAX_QUESTION_LENGTH
 						+ " characters, got " + query.length());
 			}
 			// k = null: the configured default. The caller cannot ask for more excerpts.

@@ -28,9 +28,6 @@ public class QuestionService implements QuestionUseCases {
 
 	private static final Logger log = LoggerFactory.getLogger(QuestionService.class);
 
-	/** Spec 5: questions are short; longer input is refused before any search or model call. */
-	public static final int MAX_QUESTION_LENGTH = 1000;
-
 	public static final String NO_MATERIAL_ANSWER = "No relevant material was found in this course for this question.";
 
 	private final CourseRepositoryPort courses;

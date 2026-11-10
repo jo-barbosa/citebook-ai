@@ -89,7 +89,7 @@ class QuestionControllerTest {
 
 	@Test
 	void aQuestionOverTheLimitIs400() throws Exception {
-		String question = "a".repeat(QuestionService.MAX_QUESTION_LENGTH + 1);
+		String question = "a".repeat(QuestionUseCases.MAX_QUESTION_LENGTH + 1);
 
 		ask("esinf", "{\"question\": \"" + question + "\"}")
 				.andExpect(status().isBadRequest())

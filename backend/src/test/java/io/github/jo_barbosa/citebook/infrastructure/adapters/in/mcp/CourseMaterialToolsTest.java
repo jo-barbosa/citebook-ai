@@ -17,7 +17,6 @@ import io.github.jo_barbosa.citebook.application.ports.in.course.CourseUseCases;
 import io.github.jo_barbosa.citebook.application.ports.in.course.CourseView;
 import io.github.jo_barbosa.citebook.application.ports.in.question.QuestionUseCases;
 import io.github.jo_barbosa.citebook.application.ports.in.question.SearchCommand;
-import io.github.jo_barbosa.citebook.application.services.question.QuestionService;
 import io.github.jo_barbosa.citebook.domain.exceptions.CourseNotFoundException;
 import io.github.jo_barbosa.citebook.domain.model.question.Excerpt;
 
@@ -106,7 +105,7 @@ class CourseMaterialToolsTest {
 
 	@Test
 	void searchRefusesAQueryOverTheLengthLimitWithoutSearching() {
-		String query = "a".repeat(QuestionService.MAX_QUESTION_LENGTH + 1);
+		String query = "a".repeat(QuestionUseCases.MAX_QUESTION_LENGTH + 1);
 
 		assertThat(tools.searchCourseMaterial("esinf", query))
 				.isEqualTo("query must be at most 1000 characters, got 1001");
