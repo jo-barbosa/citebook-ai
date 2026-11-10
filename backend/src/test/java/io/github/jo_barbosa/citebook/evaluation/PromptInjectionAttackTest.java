@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
+import io.github.jo_barbosa.citebook.NoMetrics;
 import io.github.jo_barbosa.citebook.TestcontainersConfiguration;
 import io.github.jo_barbosa.citebook.application.exceptions.ExternalServiceUnavailableException;
 import io.github.jo_barbosa.citebook.application.ports.in.question.AnswerView;
@@ -157,7 +158,7 @@ class PromptInjectionAttackTest {
 			modelOutput.add(answer);
 			return answer;
 		};
-		QuestionService service = new QuestionService(courses, chunkStore, new SearchSettings(5, 8, 0.53), recording);
+		QuestionService service = new QuestionService(courses, chunkStore, new SearchSettings(5, 8, 0.53), recording, new NoMetrics());
 
 		try {
 			AnswerView answer = service.ask(new AskCommand(COURSE, attack.question()));

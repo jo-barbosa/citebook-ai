@@ -20,6 +20,7 @@ import io.github.jo_barbosa.citebook.application.ports.in.question.SearchCommand
 import io.github.jo_barbosa.citebook.application.ports.out.chat.ChatPort;
 import io.github.jo_barbosa.citebook.application.ports.out.chunk.ChunkStorePort;
 import io.github.jo_barbosa.citebook.application.ports.out.course.CourseRepositoryPort;
+import io.github.jo_barbosa.citebook.application.ports.out.metrics.MetricsPort;
 import io.github.jo_barbosa.citebook.domain.exceptions.CourseNotFoundException;
 import io.github.jo_barbosa.citebook.domain.model.chunk.Chunk;
 import io.github.jo_barbosa.citebook.domain.model.chunk.ChunkMatch;
@@ -38,7 +39,9 @@ class QuestionServiceTest {
 
 	private final RecordingChat chat = new RecordingChat();
 
-	private final QuestionUseCases service = new QuestionService(courses, chunkStore, SETTINGS, chat);
+	private final RecordingMetrics metrics = new RecordingMetrics();
+
+	private final QuestionUseCases service = new QuestionService(courses, chunkStore, SETTINGS, chat, metrics);
 
 	@Test
 	void numbersTheMatchesByRankInTheOrderTheStoreReturnsThem() {
@@ -130,6 +133,47 @@ class QuestionServiceTest {
 
 		assertThat(answer).isEqualTo(new AnswerView(QuestionService.NO_MATERIAL_ANSWER, false, List.of()));
 		assertThat(chat.calls).isEmpty();
+	}
+
+	@Test
+	void countsTheCitationsTheCheckRejected() {
+		chunkStore.matches = List.of(new ChunkMatch("graphs.pdf", 12, "Dijkstra finds shortest paths.", 0.91));
+		chat.answer = "Dijkstra finds shortest paths [1]. It is greedy [7].";
+
+		service.ask(new AskCommand("esinf", "What does Dijkstra do?"));
+
+		assertThat(metrics.rejectedCitations).containsExactly(1);
+		assertThat(metrics.questionsWithoutMaterial).isZero();
+	}
+
+	@Test
+	void reportsZeroRejectedCitationsWhenEveryCitationIsValid() {
+		chunkStore.matches = List.of(new ChunkMatch("graphs.pdf", 12, "Dijkstra finds shortest paths.", 0.91));
+		chat.answer = "Dijkstra finds shortest paths [1].";
+
+		service.ask(new AskCommand("esinf", "What does Dijkstra do?"));
+
+		assertThat(metrics.rejectedCitations).containsExactly(0);
+	}
+
+	@Test
+	void countsAQuestionWithoutMaterial() {
+		chunkStore.matches = List.of();
+
+		service.ask(new AskCommand("esinf", "Who won the 2016 European Championship?"));
+
+		assertThat(metrics.questionsWithoutMaterial).isEqualTo(1);
+		assertThat(metrics.rejectedCitations).isEmpty();
+	}
+
+	@Test
+	void searchAloneCountsNothing() {
+		chunkStore.matches = List.of();
+
+		service.search(new SearchCommand("esinf", "What does Dijkstra do?", null));
+
+		assertThat(metrics.questionsWithoutMaterial).isZero();
+		assertThat(metrics.rejectedCitations).isEmpty();
 	}
 
 	@Test
@@ -284,6 +328,23 @@ class QuestionServiceTest {
 		public String complete(String systemMessage, String userMessage) {
 			calls.add(new Call(systemMessage, userMessage));
 			return answer;
+		}
+
+	}
+
+	private static class RecordingMetrics implements MetricsPort {
+
+		final List<Integer> rejectedCitations = new ArrayList<>();
+		int questionsWithoutMaterial;
+
+		@Override
+		public void citationsRejected(int count) {
+			rejectedCitations.add(count);
+		}
+
+		@Override
+		public void questionWithoutMaterial() {
+			questionsWithoutMaterial++;
 		}
 
 	}

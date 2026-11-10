@@ -14,6 +14,7 @@ import io.github.jo_barbosa.citebook.application.ports.in.question.SearchCommand
 import io.github.jo_barbosa.citebook.application.ports.out.chat.ChatPort;
 import io.github.jo_barbosa.citebook.application.ports.out.chunk.ChunkStorePort;
 import io.github.jo_barbosa.citebook.application.ports.out.course.CourseRepositoryPort;
+import io.github.jo_barbosa.citebook.application.ports.out.metrics.MetricsPort;
 import io.github.jo_barbosa.citebook.domain.exceptions.CourseNotFoundException;
 import io.github.jo_barbosa.citebook.domain.model.chunk.ChunkMatch;
 import io.github.jo_barbosa.citebook.domain.model.citation.CheckedAnswer;
@@ -34,17 +35,19 @@ public class QuestionService implements QuestionUseCases {
 	private final ChunkStorePort chunkStore;
 	private final SearchSettings settings;
 	private final ChatPort chat;
+	private final MetricsPort metrics;
 	// Stateless domain logic with no configuration: created here, not injected.
 	private final PromptBuilder prompts = new PromptBuilder();
 	private final CitationValidator citations = new CitationValidator();
 	private final InvisibleCharacterFilter invisible = new InvisibleCharacterFilter();
 
 	public QuestionService(CourseRepositoryPort courses, ChunkStorePort chunkStore, SearchSettings settings,
-			ChatPort chat) {
+			ChatPort chat, MetricsPort metrics) {
 		this.courses = courses;
 		this.chunkStore = chunkStore;
 		this.settings = settings;
 		this.chat = chat;
+		this.metrics = metrics;
 	}
 
 	@Override
@@ -90,11 +93,13 @@ public class QuestionService implements QuestionUseCases {
 		List<Excerpt> excerpts = search(new SearchCommand(command.courseCode(), question, null));
 		if (excerpts.isEmpty()) {
 			// Without material the model could only answer from its own knowledge: no call.
+			metrics.questionWithoutMaterial();
 			return new AnswerView(NO_MATERIAL_ANSWER, false, List.of());
 		}
 
 		String answer = chat.complete(prompts.systemMessage(), prompts.userMessage(question, excerpts));
 		CheckedAnswer checked = citations.check(answer, excerpts);
+		metrics.citationsRejected(checked.rejectedCitations());
 		return new AnswerView(checked.text(), checked.grounded(), checked.citations());
 	}
 

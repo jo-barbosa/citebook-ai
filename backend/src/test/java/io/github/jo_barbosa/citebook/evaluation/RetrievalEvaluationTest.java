@@ -30,6 +30,7 @@ import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import io.github.jo_barbosa.citebook.NoMetrics;
 import io.github.jo_barbosa.citebook.TestDatabase;
 import io.github.jo_barbosa.citebook.application.ports.in.document.DocumentUseCases;
 import io.github.jo_barbosa.citebook.application.ports.in.document.IngestDocumentCommand;
@@ -115,7 +116,7 @@ class RetrievalEvaluationTest {
 		QuestionUseCases questions = new QuestionService(courses, chunkStore,
 				new SearchSettings(SEARCH_DEPTH, SEARCH_DEPTH, SCORE_THRESHOLD), (system, user) -> {
 					throw new UnsupportedOperationException("the retrieval evaluation never calls the chat model");
-				});
+				}, new NoMetrics());
 
 		IngestDocumentView ingested = documents.ingest(new IngestDocumentCommand(COURSE, DOCUMENT, corpus()));
 

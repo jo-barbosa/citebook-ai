@@ -11,6 +11,7 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import io.github.jo_barbosa.citebook.FakeEmbeddingModel;
+import io.github.jo_barbosa.citebook.NoMetrics;
 import io.github.jo_barbosa.citebook.TestDatabase;
 import io.github.jo_barbosa.citebook.application.ports.in.document.DocumentUseCases;
 import io.github.jo_barbosa.citebook.application.ports.in.document.IngestDocumentCommand;
@@ -41,7 +42,7 @@ class QuestionServiceIntegrationTest {
 	private final QuestionUseCases questions = new QuestionService(courses, chunkStore, new SearchSettings(5, 8, 0.0),
 			(system, user) -> {
 				throw new UnsupportedOperationException("search never calls the chat model");
-			});
+			}, new NoMetrics());
 
 	@BeforeEach
 	void clean() {
