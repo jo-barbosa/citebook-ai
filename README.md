@@ -4,7 +4,7 @@ Ask questions about a course's PDFs and get answers that cite their source (file
 
 citebook-ai is a retrieval-augmented generation (RAG) service. You upload a course's PDFs, it splits them into chunks, embeds them and stores them in pgvector. A question is answered only from the most relevant excerpts, and every citation in the answer is checked against the excerpts that were actually retrieved. The same engine is exposed through a REST API (for an Angular UI) and an MCP server (for external assistants such as Claude Desktop).
 
-> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval, the retrieval evaluation and question answering with checked citations and the MCP tools work today. The Angular UI lists the courses and answers questions; showing the sources next to the answer is next.
+> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval, the retrieval evaluation and question answering with checked citations and the MCP tools work today. The Angular UI lists the courses, answers questions and shows each answer with its sources.
 
 ## Features
 
@@ -21,7 +21,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 | Custom metrics for Prometheus (rejected citations, questions without material, MCP tool calls) | Done |
 | Prometheus and Grafana containers with a provisioned dashboard | Done |
 | Retrieval evaluation (hit rate@k, MRR) as a test | Done |
-| Angular UI | Planned |
+| Angular UI: question form, answers with linked citations and sources | Done |
 
 ## Design choices
 
@@ -38,6 +38,8 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 **Invisible characters** (`InvisibleCharacterFilter`). Text can carry instructions a person does not see but the model reads: tag characters (U+E0000–U+E007F, an invisible copy of ASCII), zero-width spaces and joiners, bidi controls, variation selectors. Every page is stripped of all Unicode format characters (category Cf) and variation selectors before chunking, and so are the file name (it reaches the prompt as the excerpt's source) and the question, so the model sees what a person sees. Documents indexed before this change keep their text until they are uploaded again. The text is cleaned, not rejected: ordinary PDFs contain stray zero-width spaces and soft hyphens, and removing a character nobody sees changes nothing a reader sees. The number removed is logged, never the text. Instructions written as visible text (or as white text) are not affected; the citation check and the attack test cover those.
 
 **Citation check** (`CitationValidator`). The answer cites excerpts as `[n]`. Every number is checked against the excerpts actually sent to the model: a citation that points to no excerpt is removed from the text and counted, a grouped one keeps only its valid numbers (`[1, 9, 3]` becomes `[1, 3]`), and an answer with no valid citation is marked as not grounded. Brackets in code (`a[0]`, code blocks) and numbers longer than 3 digits are not treated as citations. The check proves each citation points to a real file and page, not that the claim is in it.
+
+**Answer rendering** (`AnswerView`, `citation-markdown.ts`). The model writes Markdown, and its text is untrusted: it was written after reading documents. The page renders it with `ngx-markdown`, which passes the HTML through Angular's sanitizer (no scripts, no event handlers, no `javascript:` links). Two rules of this project go further: raw HTML in an answer is shown as text instead of being rendered (so `List<String>` stays readable and nothing the model writes becomes an element), and an image is replaced by its alt text, because a browser fetches an image as soon as it is shown, which would let a poisoned document leak text through the image's address without any click. Each `[n]` becomes a link to its source through a rule in the Markdown parser, so brackets in code (`a[0]`) are left alone, as in the backend's check. Sources (file, page, excerpt) are shown as plain text, and an answer that cites nothing carries a warning.
 
 **MCP tools** (`CourseMaterialTools`). The app is also an MCP server (Streamable HTTP at `/mcp`) with two tools: `list_courses` and `search_course_material(courseCode, query)`. They call the same use cases as the REST API and are a second inbound adapter, with no change to the application or domain code. Search returns the excerpts with file name and page and never calls this project's chat model: the assistant that called the tool writes the answer. Both tools are declared read-only (`readOnlyHint`), the number of excerpts is fixed by configuration (the caller cannot ask for more), and the query is limited to 1000 characters. The result starts by stating that excerpts are data, not instructions. An unknown course returns a message listing the valid codes, so the assistant can correct its call.
 
@@ -65,7 +67,7 @@ The Angular app lives in `frontend/`, next to `backend/`.
 - Embeddings: Ollama with `bge-m3` (1024 dimensions), running locally
 - Chat model: OpenAI-compatible API through OpenRouter
 - springdoc-openapi, Actuator + Micrometer metrics, Prometheus, Grafana (provisioned dashboard)
-- Frontend: Angular 22 (standalone components, signals, zoneless), plain CSS, Vitest
+- Frontend: Angular 22 (standalone components, signals, zoneless), plain CSS, `ngx-markdown`, Vitest
 - Tests: JUnit 5, Testcontainers, Vitest; CI on GitHub Actions (one workflow per side, each filtered by path)
 
 ## Getting started
@@ -113,7 +115,7 @@ npm install
 npm start
 ```
 
-The Angular dev server runs at http://localhost:4200 and forwards `/api` to the backend on port 8080 (`frontend/proxy.conf.json`), so start the backend first. The browser only talks to the dev server, which is why the backend has no CORS configuration. The page lists the courses, takes a question (up to 1000 characters) for the chosen course and shows the answer, with a status line while it waits and the server's message when something fails. The answer is rendered as plain text, never as HTML, because it is model output.
+The Angular dev server runs at http://localhost:4200 and forwards `/api` to the backend on port 8080 (`frontend/proxy.conf.json`), so start the backend first. The browser only talks to the dev server, which is why the backend has no CORS configuration. The page lists the courses, takes a question (up to 1000 characters) for the chosen course and shows the answer, with a status line while it waits and the server's message when something fails. The answer's Markdown is rendered (and sanitized), every `[n]` links to its source below the answer, and an answer that cites no source is marked with a warning.
 
 ```bash
 npm test -- --watch=false   # unit tests (Vitest)
