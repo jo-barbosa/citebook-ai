@@ -1,0 +1,122 @@
+{
+  "uid": "citebook",
+  "title": "citebook-ai",
+  "description": "RAG service metrics. Totals count since the app started.",
+  "tags": ["citebook"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "graphTooltip": 1,
+  "refresh": "10s",
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Questions asked",
+      "description": "Requests to POST /api/courses/{code}/questions, any outcome.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(http_server_requests_seconds_count{uri=\"/api/courses/{courseCode}/questions\"}) or vector(0)"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Questions without material",
+      "description": "The search found no excerpt above the threshold, so the model was not called.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "sum(citebook_questions_no_material_total)" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Rejected citations",
+      "description": "Citations removed from answers because they pointed to no excerpt sent to the model.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "sum(citebook_citations_rejected_total)" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "MCP tool calls",
+      "description": "Calls to list_courses and search_course_material, including calls that returned an error message.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "sum(citebook_mcp_tool_calls_total)" }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "MCP calls by tool (per 5 min)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (tool) (increase(citebook_mcp_tool_calls_total[5m]))",
+          "legendFormat": "{{tool}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "min": 0 }, "overrides": [] }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "HTTP requests by endpoint and status (per 5 min)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (uri, status) (increase(http_server_requests_seconds_count{uri=~\"/api/.*|/mcp\"}[5m]))",
+          "legendFormat": "{{uri}} {{status}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "min": 0 }, "overrides": [] }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Model call time, average",
+      "description": "Spring AI's own metric: embedding (Ollama) and chat (OpenRouter) calls.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (gen_ai_operation_name) (rate(gen_ai_client_operation_seconds_sum[5m])) / sum by (gen_ai_operation_name) (rate(gen_ai_client_operation_seconds_count[5m]))",
+          "legendFormat": "{{gen_ai_operation_name}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "min": 0, "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Tokens used (per 5 min)",
+      "description": "Spring AI's own metric, by operation and token type.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (gen_ai_operation_name, gen_ai_token_type) (increase(gen_ai_client_token_usage_total{gen_ai_token_type!=\"total\"}[5m]))",
+          "legendFormat": "{{gen_ai_operation_name}} {{gen_ai_token_type}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "min": 0 }, "overrides": [] }
+    }
+  ]
+}

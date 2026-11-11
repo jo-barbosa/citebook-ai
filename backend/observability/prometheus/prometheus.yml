@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 5s # short on purpose: a demo watched live
+
+scrape_configs:
+  - job_name: citebook-ai
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # citebook-app is an alias for the machine running the app (see extra_hosts in ../compose.yaml)
+      - targets: ['citebook-app:8080']

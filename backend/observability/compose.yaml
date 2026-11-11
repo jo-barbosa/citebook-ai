@@ -1,0 +1,30 @@
+# Prometheus and Grafana for the app's metrics. Started on demand, separately from ../compose.yaml
+# (which Spring Boot starts by itself): see the README, "Dashboard".
+name: citebook-observability
+
+services:
+  prometheus:
+    image: 'prom/prometheus:latest'
+    ports:
+      - '127.0.0.1:9090:9090'
+    volumes:
+      - './prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro'
+    extra_hosts:
+      # The app runs on the host, not in a container. host-gateway works on plain Linux Docker;
+      # on Docker Desktop with WSL2, pass the WSL address in CITEBOOK_APP_HOST.
+      - 'citebook-app:${CITEBOOK_APP_HOST:-host-gateway}'
+  grafana:
+    image: 'grafana/grafana:latest'
+    ports:
+      - '127.0.0.1:3000:3000'
+    environment:
+      # Read-only and anonymous: the datasource and the dashboard are files, nothing is edited in the UI.
+      - 'GF_AUTH_ANONYMOUS_ENABLED=true'
+      - 'GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer'
+      - 'GF_AUTH_DISABLE_LOGIN_FORM=true'
+      - 'GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/citebook.json'
+    volumes:
+      - './grafana/provisioning:/etc/grafana/provisioning:ro'
+      - './grafana/dashboards:/var/lib/grafana/dashboards:ro'
+    depends_on:
+      - prometheus
