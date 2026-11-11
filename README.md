@@ -18,6 +18,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 | Answers with checked citations (file + page) | Done |
 | Prompt-injection hardening (invisible characters, attack test, demo) | Done |
 | Read-only MCP tools | Done |
+| Custom metrics for Prometheus (rejected citations, questions without material, MCP tool calls) | Done |
 | Retrieval evaluation (hit rate@k, MRR) as a test | Done |
 | Angular UI | Planned |
 
@@ -199,6 +200,18 @@ curl -i -X POST http://localhost:8080/mcp \
   -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
 ```
+
+### Metrics
+
+`http://localhost:8080/actuator/prometheus` exposes Spring Boot's and Spring AI's metrics (HTTP requests, model latency and token usage) and three counters of this project:
+
+| Metric | Counts |
+| --- | --- |
+| `citebook_citations_rejected_total` | Citations removed from answers because they pointed to no excerpt sent to the model |
+| `citebook_questions_no_material_total` | Questions for which the course had no relevant material (answered without calling the model) |
+| `citebook_mcp_tool_calls_total{tool="…"}` | Calls to each MCP tool, including calls that returned an error message |
+
+The ask service counts through a port (`MetricsPort`), so the application layer has no Micrometer types; the MCP adapter, which is infrastructure, counts its own calls. Tags never carry text from questions or documents.
 
 ## Tests
 
