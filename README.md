@@ -19,6 +19,7 @@ citebook-ai is a retrieval-augmented generation (RAG) service. You upload a cour
 | Prompt-injection hardening (invisible characters, attack test, demo) | Done |
 | Read-only MCP tools | Done |
 | Custom metrics for Prometheus (rejected citations, questions without material, MCP tool calls) | Done |
+| Prometheus and Grafana containers with a provisioned dashboard | Done |
 | Retrieval evaluation (hit rate@k, MRR) as a test | Done |
 | Angular UI | Planned |
 
@@ -61,7 +62,7 @@ io.github.jo_barbosa.citebook
 - PostgreSQL 16 + pgvector (HNSW index, cosine distance, iterative index scans), schema managed by Flyway
 - Embeddings: Ollama with `bge-m3` (1024 dimensions), running locally
 - Chat model: OpenAI-compatible API through OpenRouter
-- springdoc-openapi, Actuator + Prometheus metrics
+- springdoc-openapi, Actuator + Micrometer metrics, Prometheus, Grafana (provisioned dashboard)
 - Tests: JUnit 5, Testcontainers; CI on GitHub Actions
 
 ## Getting started
@@ -212,6 +213,24 @@ curl -i -X POST http://localhost:8080/mcp \
 | `citebook_mcp_tool_calls_total{tool="…"}` | Calls to each MCP tool, including calls that returned an error message |
 
 The ask service counts through a port (`MetricsPort`), so the application layer has no Micrometer types; the MCP adapter, which is infrastructure, counts its own calls. Tags never carry text from questions or documents.
+
+### Dashboard
+
+Prometheus and Grafana run from a second Compose file, started on demand while the app is running:
+
+```bash
+cd backend
+CITEBOOK_APP_HOST=$(hostname -I | awk '{print $1}') docker compose -f observability/compose.yaml up -d
+```
+
+- Grafana: http://localhost:3000 opens the `citebook-ai` dashboard: questions asked, questions without material, rejected citations, MCP calls per tool, HTTP requests, model call time and tokens. Totals count since the app started.
+- Prometheus: http://localhost:9090 (the scrape target is under Status → Targets).
+
+Nothing is configured by hand: the scrape configuration, the Grafana datasource and the dashboard are files under `backend/observability/`. Grafana is anonymous and read-only, and both ports are bound to `127.0.0.1`.
+
+Prometheus runs in a container and the app on the host, so it needs the host's address. `CITEBOOK_APP_HOST` provides it: on Docker Desktop with WSL2 the container cannot reach the app through `host.docker.internal`, only through the WSL address, which is what the command above passes. On plain Linux Docker the variable can be left out (the default is Docker's `host-gateway`).
+
+Stop them with `docker compose -f observability/compose.yaml down`.
 
 ## Tests
 
