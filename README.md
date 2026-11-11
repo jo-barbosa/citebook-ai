@@ -4,7 +4,7 @@ Ask questions about a course's PDFs and get answers that cite their source (file
 
 citebook-ai is a retrieval-augmented generation (RAG) service. You upload a course's PDFs, it splits them into chunks, embeds them and stores them in pgvector. A question is answered only from the most relevant excerpts, and every citation in the answer is checked against the excerpts that were actually retrieved. The same engine is exposed through a REST API (for an Angular UI) and an MCP server (for external assistants such as Claude Desktop).
 
-> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval, the retrieval evaluation and question answering with checked citations and the MCP tools work today. The Angular UI is being built (scaffold, dev proxy and CI are in place).
+> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval, the retrieval evaluation and question answering with checked citations and the MCP tools work today. The Angular UI lists the courses and answers questions; showing the sources next to the answer is next.
 
 ## Features
 
@@ -113,7 +113,7 @@ npm install
 npm start
 ```
 
-The Angular dev server runs at http://localhost:4200 and forwards `/api` to the backend on port 8080 (`frontend/proxy.conf.json`), so start the backend first. The browser only talks to the dev server, which is why the backend has no CORS configuration. For now the page is a shell; the course list, the question form and the answer view come next.
+The Angular dev server runs at http://localhost:4200 and forwards `/api` to the backend on port 8080 (`frontend/proxy.conf.json`), so start the backend first. The browser only talks to the dev server, which is why the backend has no CORS configuration. The page lists the courses, takes a question (up to 1000 characters) for the chosen course and shows the answer, with a status line while it waits and the server's message when something fails. The answer is rendered as plain text, never as HTML, because it is model output.
 
 ```bash
 npm test -- --watch=false   # unit tests (Vitest)
