@@ -19,9 +19,8 @@ spring:
         model: z-ai/glm-5.3-flash
         max-retries: 1 # retries, not attempts: 2 requests at most (spec 7)
         timeout: 30s # per attempt; applied by ChatModelAdapter (see there)
-        options:
-          temperature: 0.2 # answers should stick to the excerpts
-          max-tokens: 1024 # bounds cost and time on free models
+        temperature: 0.2 # answers should stick to the excerpts
+        max-tokens: 1024 # bounds cost and time on free models
     ollama:
       embedding:
         model: bge-m3
