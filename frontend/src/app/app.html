@@ -19,9 +19,6 @@
   }
 
   @if (answer(); as result) {
-    <section class="answer">
-      <h2>Answer</h2>
-      <p>{{ result.answer }}</p>
-    </section>
+    <app-answer-view [answer]="result" />
   }
 </main>

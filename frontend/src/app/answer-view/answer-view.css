@@ -1,0 +1,43 @@
+.answer-view {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #ddd;
+}
+
+.warning {
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid #b26a00;
+  background: #fff6e5;
+}
+
+.answer-text {
+  display: block;
+}
+
+.sources {
+  list-style: none;
+  padding: 0;
+}
+
+.sources li {
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid transparent;
+}
+
+/* The source whose [n] was clicked: the link's target. */
+.sources li:target {
+  border-left-color: #0b57d0;
+  background: #f0f5ff;
+}
+
+.source {
+  margin: 0;
+  font-weight: 600;
+}
+
+blockquote {
+  margin: 0.25rem 0 0;
+  color: #444;
+  font-size: 0.9rem;
+  white-space: pre-wrap; /* excerpts keep the PDF's line breaks */
+}

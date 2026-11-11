@@ -1,11 +1,12 @@
 import { Component, inject, signal } from '@angular/core';
 
+import { AnswerView } from './answer-view/answer-view';
 import { Answer, CitebookApi, Course, errorMessage } from './api/citebook-api';
 import { AskedQuestion, QuestionForm } from './question-form/question-form';
 
 /** The page: loads the courses, sends the question, and holds what is shown (loading, error, answer). */
 @Component({
-  imports: [QuestionForm],
+  imports: [QuestionForm, AnswerView],
   selector: 'app-root',
   styleUrl: './app.css',
   templateUrl: './app.html',

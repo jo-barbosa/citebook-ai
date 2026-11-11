@@ -12,13 +12,3 @@ main {
 .error {
   color: #a40000;
 }
-
-.answer {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid #ddd;
-}
-
-.answer p {
-  white-space: pre-wrap; /* keep the model's line breaks */
-}

@@ -1,0 +1,23 @@
+<section class="answer-view">
+  <h2>Answer</h2>
+
+  @if (!answer().grounded) {
+    <p class="warning" role="note">
+      This answer cites no source from the course material, so nothing in the documents backs it.
+    </p>
+  }
+
+  <markdown class="answer-text" [data]="answer().answer"></markdown>
+
+  @if (answer().citations.length > 0) {
+    <h3>Sources</h3>
+    <ul class="sources">
+      @for (citation of answer().citations; track citation.n) {
+        <li [id]="'source-' + citation.n">
+          <p class="source">[{{ citation.n }}] {{ citation.fileName }}, page {{ citation.page }}</p>
+          <blockquote>{{ citation.excerpt }}</blockquote>
+        </li>
+      }
+    </ul>
+  }
+</section>

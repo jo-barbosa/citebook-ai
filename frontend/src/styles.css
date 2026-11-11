@@ -5,3 +5,33 @@ body {
   color: #1a1a1a;
   background: #fff;
 }
+
+/*
+ * The answer's Markdown is turned into HTML at run time, so Angular's per-component style scoping does not
+ * reach it: its styles are global, under the class the answer component puts on the <markdown> element.
+ */
+.answer-text a.citation {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.answer-text pre {
+  padding: 0.75rem;
+  overflow-x: auto;
+  background: #f4f4f4;
+}
+
+.answer-text code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}
+
+.answer-text table {
+  border-collapse: collapse;
+}
+
+.answer-text th,
+.answer-text td {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #ccc;
+}

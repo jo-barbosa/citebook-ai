@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { App } from './app';
+import { provideAnswerMarkdown } from './answer-view/citation-markdown';
 
 describe('App', () => {
   let fixture: ComponentFixture<App>;
@@ -12,7 +13,7 @@ describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideAnswerMarkdown()],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(App);
@@ -71,11 +72,18 @@ describe('App', () => {
 
     const request = http.expectOne('/api/courses/ods/questions');
     expect(request.request.body).toEqual({ question: 'How is the height chosen?' });
-    request.flush({ answer: 'It tosses a coin [1].', grounded: true, citations: [] });
+    request.flush({
+      answer: 'It tosses a coin [1].',
+      grounded: true,
+      citations: [{ n: 1, fileName: 'ods-java.pdf', page: 100, excerpt: 'Toss a coin.' }],
+    });
     await fixture.whenStable();
 
     expect(page.querySelector('[role="status"]')).toBeNull();
-    expect(page.querySelector('.answer')?.textContent).toContain('It tosses a coin [1].');
+    const answer = page.querySelector('app-answer-view')!;
+    expect(answer.textContent).toContain('It tosses a coin');
+    expect(answer.querySelector('a.citation')?.getAttribute('href')).toBe('#source-1');
+    expect(answer.querySelector('#source-1')?.textContent).toContain('ods-java.pdf, page 100');
   });
 
   it("shows the server's message when the question fails", async () => {
@@ -93,8 +101,28 @@ describe('App', () => {
     expect(page.querySelector('[role="alert"]')?.textContent).toContain(
       'The chat model is unavailable',
     );
-    expect(page.querySelector('.answer')).toBeNull();
+    expect(page.querySelector('app-answer-view')).toBeNull();
     expect(page.querySelector('button')!.disabled).toBe(false);
+  });
+
+  it('clears the previous answer when a new question starts', async () => {
+    await loadCourses([{ code: 'ods', documents: 1 }]);
+    await ask('How is the height chosen?');
+    http
+      .expectOne('/api/courses/ods/questions')
+      .flush({ answer: 'It tosses a coin.', grounded: false, citations: [] });
+    await fixture.whenStable();
+    expect(page.querySelector('app-answer-view')).not.toBeNull();
+
+    await ask('And the expected height?');
+
+    expect(page.querySelector('app-answer-view')).toBeNull();
+    expect(page.querySelector('[role="status"]')).not.toBeNull();
+    http
+      .expectOne('/api/courses/ods/questions')
+      .flush({ answer: 'It is 1.', grounded: false, citations: [] });
+    await fixture.whenStable();
+    expect(page.querySelector('app-answer-view')?.textContent).toContain('It is 1.');
   });
 
   it('shows a message when the courses cannot be loaded', async () => {
