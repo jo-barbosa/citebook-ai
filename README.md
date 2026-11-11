@@ -4,7 +4,7 @@ Ask questions about a course's PDFs and get answers that cite their source (file
 
 citebook-ai is a retrieval-augmented generation (RAG) service. You upload a course's PDFs, it splits them into chunks, embeds them and stores them in pgvector. A question is answered only from the most relevant excerpts, and every citation in the answer is checked against the excerpts that were actually retrieved. The same engine is exposed through a REST API (for an Angular UI) and an MCP server (for external assistants such as Claude Desktop).
 
-> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval, the retrieval evaluation and question answering with checked citations and the MCP tools work today. The Angular UI is next.
+> **Status:** work in progress. Document ingestion (upload, chunking, embedding, storage), course listing, retrieval, the retrieval evaluation and question answering with checked citations and the MCP tools work today. The Angular UI is being built (scaffold, dev proxy and CI are in place).
 
 ## Features
 
@@ -56,6 +56,8 @@ io.github.jo_barbosa.citebook
     └── config/
 ```
 
+The Angular app lives in `frontend/`, next to `backend/`.
+
 ## Tech stack
 
 - Java 25, Spring Boot 4.1, Spring AI 2.0, Maven
@@ -63,7 +65,8 @@ io.github.jo_barbosa.citebook
 - Embeddings: Ollama with `bge-m3` (1024 dimensions), running locally
 - Chat model: OpenAI-compatible API through OpenRouter
 - springdoc-openapi, Actuator + Micrometer metrics, Prometheus, Grafana (provisioned dashboard)
-- Tests: JUnit 5, Testcontainers; CI on GitHub Actions
+- Frontend: Angular 22 (standalone components, signals, zoneless), plain CSS, Vitest
+- Tests: JUnit 5, Testcontainers, Vitest; CI on GitHub Actions (one workflow per side, each filtered by path)
 
 ## Getting started
 
@@ -71,6 +74,7 @@ io.github.jo_barbosa.citebook
 
 - Java 25
 - Docker (Docker Desktop with WSL2 integration works)
+- Node.js 24 and npm (for the frontend)
 - An [OpenRouter](https://openrouter.ai) API key
 
 ### Configure
@@ -100,6 +104,21 @@ docker compose exec ollama ollama pull bge-m3
 ```
 
 Run with the `dev` profile (`-Dspring-boot.run.profiles=dev`) to log prompts and completions. It is off by default because prompts contain course excerpts.
+
+### Run the frontend
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+The Angular dev server runs at http://localhost:4200 and forwards `/api` to the backend on port 8080 (`frontend/proxy.conf.json`), so start the backend first. The browser only talks to the dev server, which is why the backend has no CORS configuration. For now the page is a shell; the course list, the question form and the answer view come next.
+
+```bash
+npm test -- --watch=false   # unit tests (Vitest)
+npm run build               # production build in dist/
+```
 
 ### Use
 
