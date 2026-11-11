@@ -1,0 +1,24 @@
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.notice,
+.status {
+  color: #555;
+}
+
+.error {
+  color: #a40000;
+}
+
+.answer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #ddd;
+}
+
+.answer p {
+  white-space: pre-wrap; /* keep the model's line breaks */
+}

@@ -1,4 +1,27 @@
 <main>
   <h1>{{ title() }}</h1>
   <p>Ask questions about a course's documents and get answers that cite their source.</p>
+
+  @if (courses(); as list) {
+    @if (list.length === 0) {
+      <p class="notice">There are no courses yet. Upload a PDF to create one (see the README).</p>
+    } @else {
+      <app-question-form [courses]="list" [disabled]="loading()" (asked)="ask($event)" />
+    }
+  }
+
+  @if (loading()) {
+    <p class="status" role="status">Looking for an answer…</p>
+  }
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  @if (answer(); as result) {
+    <section class="answer">
+      <h2>Answer</h2>
+      <p>{{ result.answer }}</p>
+    </section>
+  }
 </main>

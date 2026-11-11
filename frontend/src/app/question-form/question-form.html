@@ -1,0 +1,30 @@
+<form (submit)="submit($event)">
+  <label for="course">Course</label>
+  <select
+    id="course"
+    #courseList
+    [disabled]="disabled()"
+    (change)="pickedCode.set(courseList.value)"
+  >
+    @for (course of courses(); track course.code) {
+      <option [value]="course.code" [selected]="course.code === selectedCode()">
+        {{ course.code }} ({{ course.documents }}
+        {{ course.documents === 1 ? 'document' : 'documents' }})
+      </option>
+    }
+  </select>
+
+  <label for="question">Question</label>
+  <textarea
+    id="question"
+    #questionText
+    rows="3"
+    placeholder="Ask something the course material covers"
+    [attr.maxlength]="maxLength"
+    [value]="question()"
+    [disabled]="disabled()"
+    (input)="question.set(questionText.value)"
+  ></textarea>
+
+  <button type="submit" [disabled]="!canAsk()">Ask</button>
+</form>
